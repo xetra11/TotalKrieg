@@ -8,7 +8,7 @@
 <body>
 <x-dc>
 <helmet>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&amp;family=Kalam:wght@700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&amp;family=Neucha&amp;family=Kalam:wght@700&amp;display=swap" rel="stylesheet">
 <style>
 body{margin:0;background:#1b1e18}
 button{font-family:inherit;color:inherit;cursor:pointer}
@@ -54,6 +54,10 @@ button:focus-visible{outline:3px solid #d9bc62;outline-offset:2px}
 <symbol id="abt-jg" viewBox="0 0 40 54"><use href="#b-short"></use><use href="#p-abt"></use><use href="#b-jg"></use></symbol>
 <symbol id="abt-pi" viewBox="0 0 40 54"><use href="#b-short"></use><use href="#p-abt"></use><use href="#b-pi"></use></symbol>
 <symbol id="abt-nb" viewBox="0 0 40 54"><use href="#b-short"></use><use href="#p-abt"></use><use href="#b-nb"></use></symbol>
+<symbol id="sov-army" viewBox="0 0 62 46"><path d="M3 1V45" fill="none" stroke="currentColor" stroke-width="2.4"></path><rect x="3" y="3" width="56" height="24" fill="none" stroke="currentColor" stroke-width="2"></rect><path d="M3 7H59M3 23H59" fill="none" stroke="currentColor" stroke-width="1.4"></path></symbol>
+<symbol id="sov-corps" viewBox="0 0 78 46"><path d="M3 1V45" fill="none" stroke="currentColor" stroke-width="2.4"></path><rect x="3" y="3" width="72" height="24" fill="none" stroke="currentColor" stroke-width="2"></rect><path d="M8 3V27M70 3V27" fill="none" stroke="currentColor" stroke-width="1.4"></path></symbol>
+<symbol id="sov-div" viewBox="0 0 84 46"><path d="M3 1V45" fill="none" stroke="currentColor" stroke-width="2.4"></path><path d="M3 3H81L71 15L81 27H3Z" fill="none" stroke="currentColor" stroke-width="2"></path></symbol>
+<symbol id="sov-btl" viewBox="0 0 40 46"><path d="M3 1V45" fill="none" stroke="currentColor" stroke-width="2.4"></path><path d="M3 3L37 15L3 27Z" fill="none" stroke="currentColor" stroke-width="2"></path></symbol>
 <symbol id="l-pz" viewBox="0 28 40 28"><use href="#b-pz"></use></symbol>
 <symbol id="l-gren" viewBox="0 28 40 28"><use href="#b-gren"></use></symbol>
 <symbol id="l-art" viewBox="0 28 40 28"><use href="#b-art"></use></symbol>
@@ -242,6 +246,12 @@ button:focus-visible{outline:3px solid #d9bc62;outline-offset:2px}
       <span style="font-family: Kalam, 'Comic Sans MS', cursive; font-weight: 700; font-size: 18px; line-height: 1.1; white-space: nowrap; margin-top: 12px">{{u.label}}</span>
     </div>
   </sc-for>
+  <sc-for list="{{sovUnits}}" as="s" hint-placeholder-count="11">
+    <div style="position: absolute; left: {{s.x}}px; top: {{s.y}}px; width: {{s.w}}px; height: 46px; color: #c8281c">
+      <svg width="{{s.w}}" height="46" aria-hidden="true"><use href="#{{s.sym}}"></use></svg>
+      <span style="position: absolute; left: {{s.tx}}px; top: 5px; font-family: Neucha, 'Comic Sans MS', cursive; font-weight: 400; font-size: 17px; line-height: 20px; white-space: nowrap">{{s.label}}</span>
+    </div>
+  </sc-for>
 
   <!-- Battle marker -->
   <button class="hov" onClick="{{openPopup}}" aria-label="Open the battle at Marinowka" style="position: absolute; left: 424px; top: 390px; width: 56px; height: 56px; padding: 0; border: 0; background: transparent">
@@ -277,9 +287,17 @@ button:focus-visible{outline:3px solid #d9bc62;outline-offset:2px}
     <h2 style="margin: 0 0 6px; font-size: 18px; font-weight: 700">Zeichenerklärung</h2>
     <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; row-gap: 2px">
       <sc-for list="{{legend}}" as="k" hint-placeholder-count="12">
-        <div style="display: flex; align-items: center; gap: 8px; height: 34px; color: #1c4fa0">
+        <div style="display: flex; align-items: center; gap: 8px; height: 30px; color: #1c4fa0">
           <svg width="{{k.w}}" height="{{k.h}}" aria-hidden="true" style="flex: 0 0 auto"><use href="#{{k.sym}}"></use></svg>
           <span style="font-size: 15px; font-weight: 500; line-height: 1.05; color: #23231d">{{k.label}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid #a9a591">
+      <sc-for list="{{sovLegend}}" as="k" hint-placeholder-count="4">
+        <div style="display: flex; flex-direction: column; gap: 1px; color: #c8281c">
+          <svg width="{{k.w}}" height="26" aria-hidden="true"><use href="#{{k.sym}}"></use></svg>
+          <span style="font-size: 14px; font-weight: 500; line-height: 1.05; color: #23231d">{{k.label}}</span>
         </div>
       </sc-for>
     </div>
@@ -309,7 +327,7 @@ button:focus-visible{outline:3px solid #d9bc62;outline-offset:2px}
       </div>
       <div style="text-align: center; font-size: 18px; font-weight: 700; color: #b9baab">vs</div>
       <div style="display: flex; gap: 12px; align-items: center">
-        <span style="flex: 0 0 auto; width: 48px; height: 62px; background: #e5e1d0; color: #c8281c; display: flex; align-items: center; justify-content: center"><svg width="38" height="52" aria-hidden="true"><use href="#div"></use></svg></span>
+        <span style="flex: 0 0 auto; position: relative; width: 96px; height: 62px; background: #e5e1d0; color: #c8281c"><svg width="84" height="46" aria-hidden="true" style="position: absolute; left: 6px; top: 8px"><use href="#sov-div"></use></svg><span style="position: absolute; left: 13px; top: 13px; font-family: Neucha, 'Comic Sans MS', cursive; font-weight: 400; font-size: 17px; line-height: 20px; white-space: nowrap">96 гв сд</span></span>
         <div>
           <div style="font-size: 15px; font-weight: 600; color: #f0a79f">Defender, opponent</div>
           <div style="font-size: 21px; font-weight: 700; line-height: 1.1">96. Gd.Schtz.Div.</div>
@@ -398,17 +416,27 @@ const UNITS = [
   { sym: 'abt-nb', label: 'Nb.W.', x: 60, y: 425, color: BLUE },
   { sym: 'abt-pi', label: 'Pi. 51', x: 382, y: 566, color: BLUE },
   { sym: 'abt-jg', label: 'Pz.Jg. 128', x: 360, y: 196, color: BLUE },
-  { sym: 'army', label: '5. Stoß.A.', x: 880, y: 330, color: RED },
-  { sym: 'army', label: '2. Gd.A.', x: 1030, y: 610, color: RED },
-  { sym: 'corps', label: '31. Gd.K.', x: 700, y: 262, color: RED },
-  { sym: 'corps-pz', label: '4. Gd.m.K.', x: 680, y: 540, color: RED },
-  { sym: 'corps-pz', label: '2. Gd.mech.K.', x: 900, y: 520, color: RED },
-  { sym: 'div', label: '96. Gd.', x: 548, y: 316, color: RED },
-  { sym: 'div', label: '40. Gd.', x: 640, y: 330, color: RED },
-  { sym: 'brig-pz', label: '32.', x: 496, y: 448, color: RED },
-  { sym: 'div', label: '34. Gd.', x: 602, y: 452, color: RED },
-  { sym: 'div', label: '127.', x: 720, y: 130, color: RED },
-  { sym: 'div', label: '130.', x: 740, y: 630, color: RED },
+];
+
+const SOV_UNITS = [
+  { sym: 'sov-army', label: '5 уд А', x: 880, y: 330, w: 62, tx: 12 },
+  { sym: 'sov-army', label: '2 гв А', x: 1030, y: 610, w: 62, tx: 12 },
+  { sym: 'sov-corps', label: '31 гв ск', x: 700, y: 262, w: 78, tx: 13 },
+  { sym: 'sov-corps', label: '4 гв мк', x: 680, y: 540, w: 78, tx: 14 },
+  { sym: 'sov-corps', label: '2 гв мк', x: 900, y: 520, w: 78, tx: 14 },
+  { sym: 'sov-div', label: '96 гв сд', x: 548, y: 316, w: 84, tx: 7 },
+  { sym: 'sov-div', label: '40 гв сд', x: 640, y: 330, w: 84, tx: 7 },
+  { sym: 'sov-div', label: '32 тбр', x: 496, y: 448, w: 84, tx: 10 },
+  { sym: 'sov-div', label: '34 гв сд', x: 602, y: 452, w: 84, tx: 7 },
+  { sym: 'sov-div', label: '127 сд', x: 720, y: 130, w: 84, tx: 12 },
+  { sym: 'sov-div', label: '130 сд', x: 716, y: 630, w: 84, tx: 12 },
+];
+
+const SOV_LEGEND = [
+  { sym: 'sov-army', label: 'Armee', w: 35 },
+  { sym: 'sov-corps', label: 'Korps', w: 44 },
+  { sym: 'sov-div', label: 'Div., Brig.', w: 47 },
+  { sym: 'sov-btl', label: 'Bataillon', w: 23 },
 ];
 
 const OOB = [
@@ -494,6 +522,8 @@ class Component extends DCLogic {
 
     return {
       units: UNITS,
+      sovUnits: SOV_UNITS,
+      sovLegend: SOV_LEGEND,
       oob: OOB.map((r) => ({
         ...r,
         weight: r.top ? 700 : 500,
