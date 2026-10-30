@@ -1,0 +1,33 @@
+{
+  "source": "H.Dv. 272 (1941), nach Bundesarchiv und Panzerworld",
+  "units": {
+    "division": {
+      "w": 40,
+      "h": 56,
+      "shapes": [
+        {"op": "line", "width": 2.4, "points": [[6, 1], [6, 36]]},
+        {"op": "outline", "points": [[6, 3], [33, 15], [6, 27]]},
+        {"op": "fill", "points": [[6, 3], [25, 11.5], [6, 11.5]]},
+        {"op": "fill", "points": [[6, 18.5], [25, 18.5], [6, 27]]},
+        {"op": "outline", "points": [[3, 36], [36, 36], [36, 54], [3, 54]]}
+      ]
+    },
+    "bataillon": {
+      "w": 40,
+      "h": 56,
+      "shapes": [
+        {"op": "line", "width": 2.4, "points": [[6, 1], [6, 36]]},
+        {"op": "fill", "points": [[6, 3], [33, 15], [6, 27]]},
+        {"op": "outline", "points": [[3, 36], [36, 36], [36, 54], [3, 54]]}
+      ]
+    },
+    "kompanie": {
+      "w": 40,
+      "h": 56,
+      "shapes": [
+        {"op": "outline", "points": [[3, 20], [36, 20], [36, 40], [3, 40]]},
+        {"op": "line", "width": 6, "points": [[3, 19], [3, 41]]}
+      ]
+    }
+  }
+}

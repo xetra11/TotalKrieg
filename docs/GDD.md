@@ -105,7 +105,7 @@ Einheiten entstehen nur in eigenen Städten und der Hauptstadt, solange die Manp
 
 - Jede Stadt stellt pro Runde höchstens eine Einheit auf.
 - Die Einheit erscheint auf dem Stadtfeld. Ist es besetzt, ist dort keine Aufstellung möglich.
-- Eine neue Einheit kann erst in der nächsten Runde ziehen.
+- Eine neue Einheit kann erst in der nächsten Runde ziehen, aber schon angreifen.
 - Dörfer und Fabriken stellen keine Einheiten auf.
 - Zum Start steht in jeder Stadt und in der Hauptstadt ein Bataillon, die Manpower beginnt bei 0.
 
@@ -159,13 +159,13 @@ Diese Punkte waren nicht vorgegeben und sind im Dokument als Annahmen gesetzt. J
 - [ ] Zählt die Hauptstadt als Stadt, also 3 statt 2 Manpower pro Runde?
 - [ ] Welche Funktion haben Dörfer? Im MVP derzeit keine
 - [ ] Stichtag Sommer 1943 für alle Gliederungen bestätigen
-- [ ] Kampfregeln, Bewegung, Kosten und Stärken im Balancetest prüfen
+- [ ] Kampfregeln, Bewegung, Kosten und Stärken im Balancetest prüfen. KI gegen KI, 400 Partien: Wehrmacht 242, Sowjetunion 142, Unentschieden 16
 - [ ] Startkräfte: je 1 Bataillon in jeder Stadt und in der Hauptstadt
 - [ ] Sieg: Hauptstadt erobern oder Städtevergleich nach 40 Runden
 - [ ] Kartengröße 24 × 16 und eine Einheit pro Feld
 - [ ] Regimenter: im MVP keine spielbare Einheit, nur Info
 - [ ] Liste realer Verbandsnamen je Fraktion erstellen und prüfen
-- [ ] Engine und Zielplattform festlegen
+- [ ] Zielplattform festlegen. Die Engine ist Go mit Ebitengine, getestet unter Windows
 
 ## Quellen
 
