@@ -119,17 +119,15 @@ func Stats(f Faction, k UnitKind) UnitStats {
 
 // Unit is a unit on the map.
 type Unit struct {
-	ID       int
-	Faction  Faction
-	Kind     UnitKind
-	Pos      Coord
-	Element  *Element // the unit's place in the order of battle
-	Name     string   // full designation
-	Short    string   // map label
-	Flag     string   // text inside the symbol, where the faction's signs carry one
-	Moved    bool
-	Attacked bool
-	Fresh    bool // raised this round, may not move yet
+	ID        int
+	Faction   Faction
+	Kind      UnitKind
+	Pos       Coord
+	Element   *Element // the unit's place in the order of battle
+	Name      string   // full designation
+	Short     string   // map label
+	Flag      string   // text inside the symbol, where the faction's signs carry one
+	MovesLeft int      // fields left this turn, 0 after an attack or when just raised
 }
 
 // Stats returns the values of the unit's type.
@@ -141,26 +139,6 @@ func (u *Unit) Stats() UnitStats {
 type Stock struct {
 	Manpower  int
 	Resources int
-}
-
-// Phase is a step of a faction's turn. Income runs when the turn starts,
-// conquest when it ends.
-type Phase int
-
-const (
-	PhaseAufstellung Phase = iota
-	PhaseBewegung
-	PhaseAngriff
-)
-
-func (p Phase) String() string {
-	switch p {
-	case PhaseAufstellung:
-		return "Aufstellung"
-	case PhaseBewegung:
-		return "Bewegung"
-	}
-	return "Angriff"
 }
 
 // Report records a finished fight.

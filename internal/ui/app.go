@@ -29,6 +29,12 @@ type Options struct {
 	Shot     string        // write the first frames to this PNG and quit
 }
 
+// pendingAttack is a fight waiting for the player's choice of resolver.
+type pendingAttack struct {
+	unit   *game.Unit
+	target game.Coord
+}
+
 // App is the running program.
 type App struct {
 	opts Options
@@ -42,6 +48,7 @@ type App struct {
 
 	showOrg       bool
 	pendingDetach *game.Element
+	attack        *pendingAttack
 
 	sets      [2]*symbols.Set
 	regular   *text.GoTextFaceSource
@@ -86,13 +93,13 @@ func (a *App) start(f game.Faction) {
 	}
 	a.st = game.New(seed, f)
 	a.clearSelection()
-	a.message = "Wähle eine Stadt, um Einheiten aufzustellen."
+	a.message = "Wähle eine Einheit oder eine Stadt."
 	a.mapDirty = true
 }
 
 func (a *App) clearSelection() {
 	a.selUnit, a.selCity, a.reach = nil, nil, nil
-	a.showOrg, a.pendingDetach = false, nil
+	a.showOrg, a.pendingDetach, a.attack = false, nil, nil
 }
 
 func (a *App) humanTurn() bool {
@@ -110,7 +117,7 @@ func (a *App) Update() error {
 		a.click(float64(x), float64(y))
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) || inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		a.next()
+		a.confirm()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		a.cancel()
@@ -122,9 +129,21 @@ func (a *App) Update() error {
 	return nil
 }
 
-// cancel steps back one level: window, pending detachment, then selection.
+// confirm resolves an open fight, otherwise it ends the turn.
+func (a *App) confirm() {
+	switch {
+	case a.attack != nil:
+		a.resolveAuto()
+	case !a.showOrg:
+		a.next()
+	}
+}
+
+// cancel steps back one level: dialog, window, pending detachment, selection.
 func (a *App) cancel() {
 	switch {
+	case a.attack != nil:
+		a.attack = nil
 	case a.showOrg:
 		a.showOrg = false
 	case a.pendingDetach != nil:
@@ -156,26 +175,20 @@ func (a *App) tick() {
 	a.mapDirty = true
 	a.aiWait = 0
 	if !a.st.Over {
-		a.message = "Du bist am Zug: Wähle eine Stadt, um Einheiten aufzustellen."
+		a.message = "Du bist am Zug."
 	}
 }
 
-// next moves on to the next phase or ends the turn.
+// next ends the player's turn.
 func (a *App) next() {
 	if !a.humanTurn() {
 		return
 	}
-	a.st.Advance()
+	a.st.EndTurn()
 	a.clearSelection()
 	a.mapDirty = true
-	switch {
-	case a.st.Over:
-	case !a.humanTurn():
+	if !a.st.Over {
 		a.message = "Die KI ist am Zug."
-	case a.st.Phase == game.PhaseBewegung:
-		a.message = "Wähle eine eigene Einheit und ein markiertes Feld."
-	default:
-		a.message = "Wähle eine eigene Einheit und einen benachbarten Gegner."
 	}
 }
 
@@ -186,6 +199,8 @@ func (a *App) click(x, y float64) {
 	case a.st.Over && newGameButton().contains(x, y):
 		a.st = nil
 		a.clearSelection()
+	case a.attack != nil:
+		a.clickAttackPrompt(x, y)
 	case a.showOrg:
 		a.clickOrg(x, y)
 	case nextButton().contains(x, y):
@@ -239,18 +254,14 @@ func (a *App) clickHex(c game.Coord) {
 		return
 	}
 	own := a.selUnit != nil && a.selUnit.Faction == st.First
-	if a.humanTurn() {
-		switch st.Phase {
-		case game.PhaseBewegung:
-			if _, ok := a.reach[c]; ok && own {
-				a.moveSelected(c)
-				return
-			}
-		case game.PhaseAngriff:
-			if t := st.UnitAt(c); t != nil && own && t.Faction != st.First {
-				a.attackSelected(c)
-				return
-			}
+	if a.humanTurn() && own {
+		if _, ok := a.reach[c]; ok {
+			a.moveSelected(c)
+			return
+		}
+		if _, ok := st.AttackTargets(a.selUnit)[c]; ok {
+			a.attack = &pendingAttack{a.selUnit, c}
+			return
 		}
 	}
 	a.selectUnit(st.UnitAt(c))
@@ -264,21 +275,8 @@ func (a *App) moveSelected(c game.Coord) {
 		a.message = err.Error()
 		return
 	}
-	a.reach = nil
 	a.message = fmt.Sprintf("%s ist gezogen.", a.selUnit.Short)
-}
-
-func (a *App) attackSelected(c game.Coord) {
-	r, err := a.st.Attack(a.selUnit, c)
-	if err != nil {
-		a.message = err.Error()
-		return
-	}
-	a.message = fmt.Sprintf("Gefecht: eigene Verluste %d, Feind %d.", r.AttackerLoss, r.DefenderLoss)
-	if r.AttackerDestroyed {
-		a.selUnit = nil
-	}
-	a.mapDirty = true
+	a.selectUnit(a.selUnit)
 }
 
 // Draw implements ebiten.Game.

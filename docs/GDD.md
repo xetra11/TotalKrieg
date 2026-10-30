@@ -20,7 +20,7 @@ Der MVP enthält nur Infanterie, zwei Fraktionen und zwei Einkommensarten. Alles
 | Gegner | Spieler gegen KI | Mehrspieler |
 | Einkommen | 1 Ressource pro Fabrik, 1 Manpower pro Stadt, je Runde | Mehr Quellen, Handel |
 | Ressourcen | Werden gesammelt, haben noch keine Funktion | Munitionsaufstockung |
-| Schlachten | Automatisch auf der Karte aufgelöst | Übergabe an taktische Spiele |
+| Schlachten | Dialog beim Angriff, nur automatische Auflösung aktiv | Übergabe an taktische Spiele |
 
 ## Spielfeld
 
@@ -86,9 +86,9 @@ Jede Einheit besitzt eine feste Gliederung, und ihre Stärke ist die Summe ihrer
 | Bataillon | 3 Schützenkompanien zu je 3, 1 MG-Kompanie zu 3 | 3 Schützenkompanien zu je 2, 1 MG-Kompanie zu 2, 1 Granatwerfer-Kompanie zu 1 |
 
 - **Kompanien:** Jede Kompanie hat einen Rufnamen und einen Führer, Offizier oder Unteroffizier. Beides ist frei erfunden.
-- **Ausgliedern:** In der Bewegungsphase verlässt eine Kompanie oder ein Bataillon den Verband auf ein freies Nachbarfeld. Das geht nur, bevor der Verband zieht, und mindestens eine Kompanie bleibt zurück. Der neue Teilverband darf noch in derselben Runde ziehen.
+- **Ausgliedern:** Im eigenen Zug verlässt eine Kompanie oder ein Bataillon den Verband auf ein freies Nachbarfeld. Das geht nur, bevor der Verband zieht, und mindestens eine Kompanie bleibt zurück. Der neue Teilverband darf noch in derselben Runde ziehen.
 - **Zugehörigkeit:** Ausgegliederte Teile bleiben in der Gliederung stehen. Eine gestrichelte Linie auf der Karte verbindet alle Teile eines Verbands.
-- **Eingliedern:** Steht ein Teilverband neben seinem Stammverband, kehrt er in der Bewegungsphase zurück. Verluste bleiben bestehen.
+- **Eingliedern:** Steht ein Teilverband neben seinem Stammverband, kehrt er im eigenen Zug zurück. Verluste bleiben bestehen.
 - **Verluste:** Sie treffen nur den angegriffenen Verband und verteilen sich gleichmäßig auf seine anwesenden Kompanien. Eine Kompanie auf 0 gilt als aufgerieben und bleibt in der Gliederung sichtbar.
 - **Vernichtung:** Fällt der Stammverband, kämpfen ausgegliederte Teile weiter. Sie können sich der nächsthöheren Ebene anschließen, die noch auf der Karte steht.
 
@@ -124,21 +124,22 @@ Einheiten entstehen nur in eigenen Städten und der Hauptstadt, solange die Manp
 
 - Jede Stadt stellt pro Runde höchstens eine Einheit auf.
 - Die Einheit erscheint auf dem Stadtfeld. Ist es besetzt, ist dort keine Aufstellung möglich.
-- Eine neue Einheit kann erst in der nächsten Runde ziehen, aber schon angreifen.
+- Eine neue Einheit kann erst in der nächsten Runde ziehen oder angreifen.
 - Dörfer und Fabriken stellen keine Einheiten auf.
 - Zum Start steht in jeder Stadt und in der Hauptstadt ein Bataillon, die Manpower beginnt bei 0.
 
 ## Rundenablauf
 
-Eine Runde besteht aus dem Zug des Spielers und dem Zug der KI, beide mit denselben Phasen:
+Eine Runde besteht aus dem Zug des Spielers und dem Zug der KI, ohne feste Phasen. Zu Zugbeginn kommt das Einkommen, danach handelt die Seite in beliebiger Reihenfolge, bis sie den Zug beendet.
 
-1. **Einkommen:** Manpower und Ressourcen werden gutgeschrieben.
-2. **Aufstellung:** Neue Einheiten erscheinen in den Städten.
-3. **Bewegung:** Jede Einheit zieht bis zu ihrer Reichweite. Feindliche Felder blockieren.
-4. **Angriff:** Jede Einheit greift höchstens einmal ein Nachbarfeld an.
-5. **Eroberung:** Wer seinen Zug auf einem gegnerischen Objekt beendet, übernimmt es.
+- **Aufstellen:** Städte stellen jederzeit im eigenen Zug Einheiten auf.
+- **Bewegen:** Jede Einheit hat pro Runde so viele Felder wie ihre Bewegung, auch in mehreren Schritten. Feindliche Felder blockieren.
+- **Angreifen:** Eine Bewegung auf ein feindlich besetztes Feld löst einen Angriff aus. Der Schritt auf den Gegner zählt mit. Die Einheit rückt bis neben den Gegner vor, danach ist ihre Bewegung beendet.
+- **Erobern:** Wer seinen Zug auf einem gegnerischen Objekt beendet, übernimmt es.
 
-Der Kampf ist kurz gehalten, weil er später durch taktische Spiele ersetzt werden soll:
+Beim Angriff des Spielers fragt ein Dialog, wie das Gefecht aufgelöst wird. Im MVP ist nur die automatische Auflösung aktiv. Hexfront, MiusPlayer und Combat Mission stehen als Tactical Layer im Dialog, sind aber noch offen. Abbrechen lässt alles unverändert. Angriffe der KI werden automatisch aufgelöst.
+
+Die automatische Auflösung ist kurz gehalten, weil sie später durch taktische Spiele ergänzt wird:
 
 - Beide Seiten würfeln 20 bis 40 Prozent. Jede verliert Punkte in Höhe von gegnerischer Stärke mal Wurf, aufgerundet.
 - Ein Verteidiger in Stadt oder Hauptstadt zählt mit 25 Prozent mehr Stärke.
@@ -160,7 +161,7 @@ Wer die gegnerische Hauptstadt erobert, gewinnt sofort. Fehlt nach 40 Runden ein
 
 ## UI
 
-Der Prototyp übernimmt Aufbau und Stil der Konzeptgrafik, ersetzt aber die freie Karte durch das Hexraster. Das Popup zur Schlachtwahl entfällt im MVP, weil Schlachten automatisch aufgelöst werden. Die Grafik zeigt beide Fraktionen mit ihren eigenen Zeichen.
+Der Prototyp übernimmt Aufbau und Stil der Konzeptgrafik, ersetzt aber die freie Karte durch das Hexraster. Das Popup zur Schlachtwahl erscheint bei jedem Angriff des Spielers. Die Grafik zeigt beide Fraktionen mit ihren eigenen Zeichen.
 
 ![Konzeptgrafik: operative Karte mit Schlacht-Popup](../concept/operational-map-battle-popup.png)
 
@@ -178,7 +179,9 @@ Diese Punkte waren nicht vorgegeben und sind im Dokument als Annahmen gesetzt. J
 - [ ] Zählt die Hauptstadt als Stadt, also 3 statt 2 Manpower pro Runde?
 - [ ] Welche Funktion haben Dörfer? Im MVP derzeit keine
 - [ ] Stichtag Sommer 1943 für alle Gliederungen bestätigen
-- [ ] Kampfregeln, Bewegung, Kosten und Stärken im Balancetest prüfen. KI gegen KI, 400 Partien: Wehrmacht 262, Sowjetunion 128, Unentschieden 10
+- [ ] Kampfregeln, Bewegung, Kosten und Stärken im Balancetest prüfen. KI gegen KI, 400 Partien: Wehrmacht 284, Sowjetunion 111, Unentschieden 5
+- [ ] Darf pro Zug jede Einheit ziehen oder nur eine? Derzeit jede
+- [ ] Soll der Spieler auch bei Angriffen der KI den Resolver wählen? Derzeit automatisch
 - [ ] Startkräfte: je 1 Bataillon in jeder Stadt und in der Hauptstadt
 - [ ] Sieg: Hauptstadt erobern oder Städtevergleich nach 40 Runden
 - [ ] Kartengröße 24 × 16 und eine Einheit pro Feld

@@ -54,6 +54,9 @@ func (a *App) draw(screen *ebiten.Image) {
 	if a.showOrg {
 		a.drawOrg(screen)
 	}
+	if a.attack != nil {
+		a.drawAttackPrompt(screen)
+	}
 	if a.st.Over {
 		a.drawEnd(screen)
 	}
@@ -132,20 +135,11 @@ func (a *App) drawTopBar(dst *ebiten.Image) {
 	a.label(dst, "Runde", 200, 10, 14, colMuted, false, text.AlignStart)
 	a.label(dst, fmt.Sprintf("%d / %d", st.Round, game.MaxRounds), 200, 28, 20, colText, true, text.AlignStart)
 
-	for i, p := range []game.Phase{game.PhaseAufstellung, game.PhaseBewegung, game.PhaseAngriff} {
-		r := rect{310 + float64(i)*126, 14, 120, 32}
-		clr, bg := colMuted, colPanel
-		if a.humanTurn() && st.Phase == p {
-			clr, bg = colDeep, colAmber
-		}
-		fillRect(dst, r, bg)
-		a.label(dst, p.String(), r.x+r.w/2, r.y+8, 15, clr, true, text.AlignCenter)
-	}
 	turn := "Du bist am Zug"
 	if !a.humanTurn() {
 		turn = "KI ist am Zug"
 	}
-	a.label(dst, turn, 700, 22, 16, colAmber, true, text.AlignStart)
+	a.label(dst, turn, 340, 20, 18, colAmber, true, text.AlignStart)
 
 	stock := st.Stocks[st.First]
 	a.label(dst, "Manpower", 900, 10, 14, colMuted, false, text.AlignStart)
@@ -159,11 +153,7 @@ func (a *App) drawTopBar(dst *ebiten.Image) {
 	b := nextButton()
 	if a.humanTurn() {
 		fillRect(dst, b, colAmber)
-		name := "Zug beenden"
-		if st.Phase != game.PhaseAngriff {
-			name = "Weiter: " + (st.Phase + 1).String()
-		}
-		a.label(dst, name, b.x+b.w/2, b.y+11, 15, colDeep, true, text.AlignCenter)
+		a.label(dst, "Zug beenden", b.x+b.w/2, b.y+11, 15, colDeep, true, text.AlignCenter)
 	} else {
 		fillRect(dst, b, colLine)
 		a.label(dst, "Bitte warten", b.x+b.w/2, b.y+11, 15, colMuted, true, text.AlignCenter)
@@ -279,12 +269,10 @@ func (a *App) drawHighlights(dst *ebiten.Image) {
 	if u := a.selUnit; u != nil {
 		cx, cy := hexCenter(u.Pos)
 		strokePoly(dst, hexCorners(cx, cy, hexSize-1), true, 3, colAmber)
-		if a.humanTurn() && st.Phase == game.PhaseAngriff && u.Faction == st.First && !u.Attacked {
-			for _, n := range u.Pos.Neighbors() {
-				if st.CanAttack(u, n) == nil {
-					nx, ny := hexCenter(n)
-					strokePoly(dst, hexCorners(nx, ny, hexSize-1), true, 3, colRed)
-				}
+		if a.humanTurn() && u.Faction == st.First {
+			for n := range st.AttackTargets(u) {
+				nx, ny := hexCenter(n)
+				strokePoly(dst, hexCorners(nx, ny, hexSize-1), true, 3, colRed)
 			}
 		}
 	}
@@ -298,7 +286,7 @@ func (a *App) drawUnits(dst *ebiten.Image) {
 	st := a.st
 	for _, u := range st.Units {
 		cx, cy := hexCenter(u.Pos)
-		spent := u.Faction == st.First && a.humanTurn() && a.spent(u)
+		spent := u.Faction == st.First && a.humanTurn() && u.MovesLeft == 0
 		plate := color.RGBA{0xef, 0xeb, 0xdb, 0xe6}
 		fillRect(dst, rect{cx - 22, cy - 25, 44, 46}, plate)
 		img := a.symbol(u.Faction, u.Kind, 0.56)
@@ -314,21 +302,11 @@ func (a *App) drawUnits(dst *ebiten.Image) {
 	}
 }
 
-func (a *App) spent(u *game.Unit) bool {
-	switch a.st.Phase {
-	case game.PhaseBewegung:
-		return u.Moved || u.Fresh
-	case game.PhaseAngriff:
-		return u.Attacked
-	}
-	return false
-}
-
 func (a *App) drawHint(dst *ebiten.Image) {
 	a.label(dst, a.message, 24, hintY, 18, colInk, true, text.AlignStart)
 	seed := fmt.Sprintf("Karte %d", a.st.Seed)
 	a.label(dst, seed, 24, hintY+30, 13, colInk, false, text.AlignStart)
-	a.label(dst, "Enter: weiter   Esc: Auswahl aufheben", 24, hintY+50, 13, colInk, false, text.AlignStart)
+	a.label(dst, "Enter: Zug beenden   G: Gliederung   Esc: abbrechen", 24, hintY+50, 13, colInk, false, text.AlignStart)
 	a.drawKey(dst)
 }
 
@@ -381,7 +359,7 @@ func (a *App) drawUnitPanel(dst *ebiten.Image) {
 	a.label(dst, u.Kind.String(), tx, y, 13, colMuted, false, text.AlignStart)
 	a.wrapped(dst, u.Short, tx, y+16, 220, 18, colText)
 	a.label(dst, fmt.Sprintf("Stärke %d / %d", u.Strength(), u.FullStrength()), tx, y+42, 16, colText, true, text.AlignStart)
-	a.label(dst, "Bewegung "+fieldCount(st.Move), tx, y+66, 15, colText, false, text.AlignStart)
+	a.label(dst, fmt.Sprintf("Bewegung %d von %s", u.MovesLeft, fieldCount(st.Move)), tx, y+66, 15, colText, false, text.AlignStart)
 	if e := u.Element; e.Kind == game.Kompanie {
 		a.label(dst, e.Callsign, tx, y+90, 15, colAmber, true, text.AlignStart)
 		a.label(dst, e.Leader, tx+90, y+90, 14, colText, false, text.AlignStart)
@@ -419,7 +397,7 @@ func (a *App) drawCityPanel(dst *ebiten.Image) {
 	o := a.selCity
 	x := float64(sideX + 16)
 	if o == nil {
-		a.wrapped(dst, "In der Aufstellungsphase eine eigene Stadt anklicken.", x, cityPanelY+40, sideW-32, 15, colMuted)
+		a.wrapped(dst, "Eigene Stadt anklicken, um Einheiten aufzustellen.", x, cityPanelY+40, sideW-32, 15, colMuted)
 		return
 	}
 	a.label(dst, fmt.Sprintf("%s, %s (%s)", o.Name, o.Kind, o.Owner), x, cityPanelY+38, 15, colText, true, text.AlignStart)

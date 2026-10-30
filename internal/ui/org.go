@@ -120,7 +120,7 @@ func (a *App) selectUnit(u *game.Unit) {
 	a.selUnit = u
 	a.selCity = nil
 	a.reach = nil
-	if a.humanTurn() && a.st.Phase == game.PhaseBewegung && u != nil && u.Faction == a.st.First {
+	if a.humanTurn() && u != nil && u.Faction == a.st.First {
 		a.reach = a.st.Reachable(u)
 	}
 }

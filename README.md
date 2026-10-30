@@ -22,15 +22,15 @@ Optionen:
 
 ## Bedienung
 
-Eine Runde läuft in drei Phasen: Aufstellung, Bewegung, Angriff. Einkommen kommt zu Zugbeginn, Eroberungen zählen am Zugende.
+Im eigenen Zug handelst du in beliebiger Reihenfolge. Einkommen kommt zu Zugbeginn, Eroberungen zählen am Zugende.
 
-- **Aufstellung:** Eigene Stadt anklicken, dann rechts eine Einheit wählen.
-- **Bewegung:** Eigene Einheit anklicken, dann ein markiertes Feld.
-- **Angriff:** Eigene Einheit anklicken, dann einen rot markierten Gegner.
+- **Aufstellen:** Eigene Stadt anklicken, dann rechts eine Einheit wählen.
+- **Bewegen:** Eigene Einheit anklicken, dann ein markiertes Feld. Reste der Bewegung bleiben für weitere Schritte.
+- **Angreifen:** Eigene Einheit anklicken, dann einen rot umrandeten Gegner. Ein Dialog fragt nach der Auflösung.
 - **Gliederung:** Einheit anklicken, dann **G** oder den Knopf rechts. Das Fenster zeigt den ganzen Verband mit Rufnamen und Kompanieführern.
-- **Ausgliedern:** In der Bewegungsphase in der Gliederung auf „Ausgliedern“ klicken, dann ein markiertes Nachbarfeld wählen.
+- **Ausgliedern:** In der Gliederung auf „Ausgliedern“ klicken, dann ein markiertes Nachbarfeld wählen.
 - **Eingliedern:** Teilverband neben den Stammverband ziehen, dann rechts auf „Eingliedern“ klicken.
-- **Enter** oder der Knopf oben rechts geht zur nächsten Phase, **Esc** bricht ab oder hebt die Auswahl auf.
+- **Enter** beendet den Zug oder bestätigt die automatische Auflösung, **Esc** bricht ab oder hebt die Auswahl auf.
 
 ## Aufbau
 

@@ -170,15 +170,13 @@ func (s *State) CanDetach(e *Element) error {
 	switch {
 	case s.Over:
 		return errors.New("Die Partie ist beendet.")
-	case s.Phase != PhaseBewegung:
-		return errors.New("Ausgliedern geht nur in der Bewegungsphase.")
 	case u == nil || u.Faction != s.Active:
 		return errors.New("Dieser Verband gehört dir nicht.")
 	case e.Token != nil:
 		return errors.New("Diese Einheit ist schon ausgegliedert.")
 	case e.Kind != Kompanie && e.Kind != Bataillon:
 		return errors.New("Nur Kompanien und Bataillone lassen sich ausgliedern.")
-	case u.Moved || u.Fresh:
+	case u.MovesLeft < u.Stats().Move:
 		return errors.New("Ausgliedern geht nur, bevor der Verband zieht.")
 	case e.Strength() <= 0:
 		return errors.New("Diese Einheit ist aufgerieben.")
@@ -200,9 +198,7 @@ func (s *State) Detach(e *Element, to Coord) (*Unit, error) {
 	if Distance(u.Pos, to) != 1 || !OnMap(to) || s.UnitAt(to) != nil {
 		return nil, errors.New("Dieses Feld ist nicht frei.")
 	}
-	t := s.placeElement(e, to)
-	t.Attacked = u.Attacked
-	return t, nil
+	return s.placeElement(e, to), nil
 }
 
 // reattachTarget finds the nearest superior unit still on the map.
@@ -218,8 +214,8 @@ func (s *State) CanReattach(u *Unit) (*Unit, error) {
 	if !u.Element.Detached() {
 		return nil, errors.New("Diese Einheit ist nicht ausgegliedert.")
 	}
-	if s.Phase != PhaseBewegung || u.Faction != s.Active {
-		return nil, errors.New("Eingliedern geht nur in der eigenen Bewegungsphase.")
+	if u.Faction != s.Active {
+		return nil, errors.New("Eingliedern geht nur im eigenen Zug.")
 	}
 	t := u.reattachTarget()
 	if t == nil {

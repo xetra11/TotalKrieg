@@ -122,10 +122,9 @@ func TestRecruitRules(t *testing.T) {
 	if s.Stocks[Wehrmacht].Manpower != 0 {
 		t.Errorf("manpower = %d", s.Stocks[Wehrmacht].Manpower)
 	}
-	if !u.Fresh {
-		t.Error("new unit is not fresh")
+	if u.MovesLeft != 0 {
+		t.Error("new unit can move")
 	}
-	s.Phase = PhaseBewegung
 	if err := s.Move(u, u.Pos.Neighbors()[0]); err == nil {
 		t.Error("fresh unit moved")
 	}
@@ -189,19 +188,114 @@ func TestEnemyBlocksOwnUnitsPass(t *testing.T) {
 	}
 }
 
-func TestMoveOnlyInMovePhaseAndOnce(t *testing.T) {
+func TestMovementBudget(t *testing.T) {
 	s := New(1, Wehrmacht)
 	clearField(s)
 	u := s.Place(Wehrmacht, Kompanie, Coord{5, 5})
-	if err := s.Move(u, Coord{6, 5}); err == nil {
-		t.Error("moved in the recruit phase")
-	}
-	s.Phase = PhaseBewegung
 	if err := s.Move(u, Coord{6, 5}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Move(u, Coord{7, 5}); err == nil {
-		t.Error("moved twice")
+	if u.MovesLeft != 2 {
+		t.Fatalf("moves left %d, want 2", u.MovesLeft)
+	}
+	if err := s.Move(u, Coord{8, 5}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Move(u, Coord{9, 5}); err == nil {
+		t.Error("moved past the budget")
+	}
+	s.EndTurn()
+	s.EndTurn()
+	if u.MovesLeft != 3 {
+		t.Errorf("moves after the round %d, want 3", u.MovesLeft)
+	}
+}
+
+func TestMoveOntoEnemyIsNoPlainMove(t *testing.T) {
+	s := New(1, Wehrmacht)
+	clearField(s)
+	u := s.Place(Wehrmacht, Kompanie, Coord{5, 5})
+	s.Place(Sowjetunion, Kompanie, Coord{6, 5})
+	if err := s.Move(u, Coord{6, 5}); err == nil {
+		t.Error("moved onto an enemy without a fight")
+	}
+}
+
+func TestAttackFromDistance(t *testing.T) {
+	s := New(1, Wehrmacht)
+	clearField(s)
+	s.Objects = nil
+	u := s.Place(Wehrmacht, Kompanie, Coord{5, 5})
+	target := Coord{8, 5}
+	d := s.Place(Sowjetunion, Division, target)
+	from, ok := s.AttackTargets(u)[target]
+	if !ok {
+		t.Fatal("enemy 3 fields away is no target")
+	}
+	if Distance(from, target) != 1 {
+		t.Fatalf("attacks from %v", from)
+	}
+	if _, err := s.Attack(u, target); err != nil {
+		t.Fatal(err)
+	}
+	if u.Strength() > 0 && u.Pos != from {
+		t.Errorf("attacker at %v, want %v", u.Pos, from)
+	}
+	if u.MovesLeft != 0 {
+		t.Errorf("moves left after attack: %d", u.MovesLeft)
+	}
+	if d.Pos != target {
+		t.Errorf("defender moved to %v", d.Pos)
+	}
+}
+
+func TestAttackRange(t *testing.T) {
+	s := New(1, Wehrmacht)
+	clearField(s)
+	s.Objects = nil
+	u := s.Place(Wehrmacht, Division, Coord{5, 5})
+	s.Place(Sowjetunion, Kompanie, Coord{7, 5})
+	if n := len(s.AttackTargets(u)); n != 0 {
+		t.Errorf("division reaches %d targets 2 fields away", n)
+	}
+	s.Place(Sowjetunion, Kompanie, Coord{6, 5})
+	if n := len(s.AttackTargets(u)); n != 1 {
+		t.Errorf("division reaches %d targets, want 1", n)
+	}
+}
+
+func TestPartlyMovedUnitAttacksWithRest(t *testing.T) {
+	s := New(1, Wehrmacht)
+	clearField(s)
+	s.Objects = nil
+	u := s.Place(Wehrmacht, Kompanie, Coord{5, 5})
+	target := Coord{8, 5}
+	s.Place(Sowjetunion, Kompanie, target)
+	if err := s.Move(u, Coord{6, 5}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := s.AttackTargets(u)[target]; !ok {
+		t.Error("no target with 2 fields left at distance 2")
+	}
+	s.Place(Sowjetunion, Kompanie, Coord{9, 5})
+	if _, ok := s.AttackTargets(u)[Coord{9, 5}]; ok {
+		t.Error("target at distance 3 with 2 fields left")
+	}
+	u.MovesLeft = 0
+	if len(s.AttackTargets(u)) != 0 {
+		t.Error("target reachable with no movement left")
+	}
+}
+
+func TestRecruitAnytimeInOwnTurn(t *testing.T) {
+	s := New(1, Wehrmacht)
+	clearField(s)
+	u := s.Place(Wehrmacht, Kompanie, Coord{5, 5})
+	if err := s.Move(u, Coord{6, 5}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Recruit(cityOf(s, Wehrmacht), Kompanie); err != nil {
+		t.Errorf("recruit after a move: %v", err)
 	}
 }
 
@@ -212,7 +306,6 @@ func TestCombatLossesStayInRange(t *testing.T) {
 		s.Objects = nil
 		u := s.Place(Wehrmacht, Division, Coord{5, 5})
 		d := s.Place(Sowjetunion, Division, Coord{6, 5})
-		s.Phase = PhaseAngriff
 		r, err := s.Attack(u, d.Pos)
 		if err != nil {
 			t.Fatal(err)
@@ -241,7 +334,6 @@ func TestCityBonusRaisesAttackerLoss(t *testing.T) {
 			}
 			u := s.Place(Wehrmacht, Division, Coord{5, 5})
 			s.Place(Sowjetunion, Division, Coord{6, 5})
-			s.Phase = PhaseAngriff
 			r, err := s.Attack(u, Coord{6, 5})
 			if err != nil {
 				t.Fatal(err)
@@ -264,7 +356,6 @@ func TestAttackerAdvancesAfterKill(t *testing.T) {
 	u := s.Place(Wehrmacht, Division, Coord{5, 5})
 	d := s.Place(Sowjetunion, Kompanie, Coord{6, 5})
 	setStrength(d, 1)
-	s.Phase = PhaseAngriff
 	r, err := s.Attack(u, Coord{6, 5})
 	if err != nil {
 		t.Fatal(err)
@@ -283,10 +374,10 @@ func TestLossesStay(t *testing.T) {
 	u := s.Place(Wehrmacht, Bataillon, Coord{5, 5})
 	setStrength(u, 5)
 	for i := 0; i < 3; i++ {
-		s.Advance()
+		s.EndTurn()
 	}
 	for i := 0; i < 3; i++ {
-		s.Advance()
+		s.EndTurn()
 	}
 	if u.Strength() != 5 {
 		t.Errorf("strength = %d, want 5", u.Strength())
@@ -298,8 +389,7 @@ func TestConquestAndIncome(t *testing.T) {
 	clearField(s)
 	o := cityOf(s, Sowjetunion)
 	s.Place(Wehrmacht, Kompanie, o.Pos)
-	s.Phase = PhaseAngriff
-	s.Advance()
+	s.EndTurn()
 	if o.Owner != Wehrmacht {
 		t.Fatal("city not conquered at end of turn")
 	}
@@ -319,8 +409,7 @@ func TestCapitalWinsImmediately(t *testing.T) {
 			s.Place(Wehrmacht, Kompanie, o.Pos)
 		}
 	}
-	s.Phase = PhaseAngriff
-	s.Advance()
+	s.EndTurn()
 	if !s.Over || s.Winner != Wehrmacht {
 		t.Fatalf("over=%v winner=%v", s.Over, s.Winner)
 	}
@@ -332,8 +421,7 @@ func TestRoundLimitCountsCities(t *testing.T) {
 	cityOf(s, Sowjetunion).Owner = Wehrmacht
 	s.Round = MaxRounds
 	s.Active = Sowjetunion
-	s.Phase = PhaseAngriff
-	s.Advance()
+	s.EndTurn()
 	if !s.Over || s.Winner != Wehrmacht {
 		t.Fatalf("over=%v winner=%v reason=%q", s.Over, s.Winner, s.Reason)
 	}
@@ -344,8 +432,7 @@ func TestRoundLimitDraw(t *testing.T) {
 	clearField(s)
 	s.Round = MaxRounds
 	s.Active = Sowjetunion
-	s.Phase = PhaseAngriff
-	s.Advance()
+	s.EndTurn()
 	if !s.Over || s.Winner != NoFaction {
 		t.Fatalf("over=%v winner=%v", s.Over, s.Winner)
 	}

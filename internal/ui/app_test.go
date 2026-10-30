@@ -23,6 +23,12 @@ func clickRect(a *App, r rect) {
 	a.click(r.x+r.w/2, r.y+r.h/2)
 }
 
+// clearBoard empties the map so a test can set up its own position.
+func clearBoard(a *App) {
+	a.st.Units = nil
+	a.st.Objects = a.st.Objects[:0]
+}
+
 func TestHexHitTest(t *testing.T) {
 	for row := 0; row < game.MapRows; row++ {
 		for col := 0; col < game.MapCols; col++ {
@@ -64,28 +70,35 @@ func TestPlayerTurnByClicks(t *testing.T) {
 	a := newApp(t, game.Wehrmacht)
 	st := a.st
 
-	// Free a city, then raise a company through the panel.
 	var city *game.Object
 	for _, o := range st.Objects {
 		if o.Owner == game.Wehrmacht && o.Kind == game.Stadt {
 			city = o
 		}
 	}
-	st.Phase = game.PhaseBewegung
+
+	// Move the garrison out, then raise a company in the same turn.
 	blocker := st.UnitAt(city.Pos)
-	a.selUnit = blocker
-	a.reach = st.Reachable(blocker)
+	clickHexAt(a, city.Pos)
+	if a.selUnit != blocker || len(a.reach) == 0 {
+		t.Fatal("garrison not selected for a move")
+	}
 	var to game.Coord
-	for c := range a.reach {
-		to = c
-		break
+	for c, d := range a.reach {
+		if d == 1 {
+			to = c
+			break
+		}
 	}
 	clickHexAt(a, to)
 	if blocker.Pos != to {
 		t.Fatalf("unit did not move: %v, message %q", blocker.Pos, a.message)
 	}
-	st.Phase = game.PhaseAufstellung
+	if blocker.MovesLeft != 1 || a.selUnit != blocker {
+		t.Errorf("after one field: moves %d, selected %v", blocker.MovesLeft, a.selUnit)
+	}
 
+	a.cancel()
 	clickHexAt(a, city.Pos)
 	if a.selCity != city {
 		t.Fatal("city not selected")
@@ -100,18 +113,9 @@ func TestPlayerTurnByClicks(t *testing.T) {
 	}
 
 	clickRect(a, nextButton())
-	if st.Phase != game.PhaseBewegung {
-		t.Fatalf("phase = %v", st.Phase)
-	}
-	clickRect(a, nextButton())
-	if st.Phase != game.PhaseAngriff {
-		t.Fatalf("phase = %v", st.Phase)
-	}
-	clickRect(a, nextButton())
 	if st.Active != game.Sowjetunion {
 		t.Fatalf("active = %v", st.Active)
 	}
-
 	for i := 0; i < aiDelayFrames; i++ {
 		a.tick()
 	}
@@ -120,34 +124,90 @@ func TestPlayerTurnByClicks(t *testing.T) {
 	}
 }
 
-func TestAttackByClicks(t *testing.T) {
-	a := newApp(t, game.Wehrmacht)
+// startAttack selects a company and clicks an enemy two fields away.
+func startAttack(t *testing.T, a *App) (*game.Unit, *game.Unit) {
+	t.Helper()
 	st := a.st
-	st.Units = nil
-	st.Objects = st.Objects[:0]
-	st.Phase = game.PhaseAngriff
-	u := st.Place(game.Wehrmacht, game.Division, game.Coord{Col: 5, Row: 5})
-	e := st.Place(game.Sowjetunion, game.Kompanie, game.Coord{Col: 6, Row: 5})
-
+	clearBoard(a)
+	u := st.Place(game.Wehrmacht, game.Kompanie, game.Coord{Col: 5, Row: 5})
+	e := st.Place(game.Sowjetunion, game.Kompanie, game.Coord{Col: 7, Row: 5})
 	clickHexAt(a, u.Pos)
-	if a.selUnit != u {
-		t.Fatal("attacker not selected")
-	}
 	clickHexAt(a, e.Pos)
-	if len(st.Reports) != 1 {
+	if a.attack == nil || a.attack.unit != u || a.attack.target != e.Pos {
+		t.Fatalf("no attack prompt, message %q", a.message)
+	}
+	return u, e
+}
+
+func TestMoveOntoEnemyOpensPromptAndAutoResolves(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	u, _ := startAttack(t, a)
+	if len(a.st.Reports) != 0 {
+		t.Fatal("fight resolved before the choice")
+	}
+	clickRect(a, autoResolveButton())
+	if a.attack != nil {
+		t.Error("prompt still open")
+	}
+	if len(a.st.Reports) != 1 {
 		t.Fatalf("no fight, message %q", a.message)
+	}
+	if u.MovesLeft != 0 {
+		t.Errorf("moves left %d", u.MovesLeft)
 	}
 }
 
-// openBattalion leaves one battalion on an empty map, selected in the movement
-// phase.
+func TestCancelledAttackChangesNothing(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	u, _ := startAttack(t, a)
+	pos := u.Pos
+	clickRect(a, cancelAttackButton())
+	if a.attack != nil || len(a.st.Reports) != 0 {
+		t.Fatalf("attack %v, reports %d", a.attack, len(a.st.Reports))
+	}
+	if u.Pos != pos || u.MovesLeft != 3 {
+		t.Errorf("unit changed: %v, moves %d", u.Pos, u.MovesLeft)
+	}
+}
+
+func TestTacticalOptionsDoNothingYet(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	startAttack(t, a)
+	for i := range tacticalOptions {
+		clickRect(a, tacticalRow(i))
+	}
+	if a.attack == nil || len(a.st.Reports) != 0 {
+		t.Fatalf("attack %v, reports %d", a.attack, len(a.st.Reports))
+	}
+}
+
+func TestEnterResolvesPromptNotTurn(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	startAttack(t, a)
+	a.confirm()
+	if a.st.Active != game.Wehrmacht || len(a.st.Reports) != 1 {
+		t.Fatalf("active %v, reports %d", a.st.Active, len(a.st.Reports))
+	}
+}
+
+func TestPromptBlocksTheMap(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	u, _ := startAttack(t, a)
+	clickRect(a, nextButton())
+	if a.st.Active != game.Wehrmacht {
+		t.Error("turn ended behind the prompt")
+	}
+	a.cancel()
+	if a.attack != nil || a.selUnit != u {
+		t.Errorf("attack %v, selection %v", a.attack, a.selUnit)
+	}
+}
+
+// openBattalion leaves one selected battalion on an empty map.
 func openBattalion(t *testing.T, a *App) *game.Unit {
 	t.Helper()
-	st := a.st
-	st.Units = nil
-	st.Objects = st.Objects[:0]
-	st.Phase = game.PhaseBewegung
-	u := st.Place(game.Wehrmacht, game.Bataillon, game.Coord{Col: 10, Row: 8})
+	clearBoard(a)
+	u := a.st.Place(game.Wehrmacht, game.Bataillon, game.Coord{Col: 10, Row: 8})
 	clickHexAt(a, u.Pos)
 	if a.selUnit != u {
 		t.Fatal("battalion not selected")
@@ -174,6 +234,15 @@ func TestOrgRowsCoverEveryElement(t *testing.T) {
 	}
 }
 
+func detachRow(u *game.Unit, e *game.Element) orgRow {
+	for _, r := range orgRows(u.Element.Root()) {
+		if r.e == e {
+			return r
+		}
+	}
+	return orgRow{}
+}
+
 func TestDetachAndReattachByClicks(t *testing.T) {
 	a := newApp(t, game.Wehrmacht)
 	st := a.st
@@ -184,13 +253,7 @@ func TestDetachAndReattachByClicks(t *testing.T) {
 	if !a.showOrg {
 		t.Fatal("order of battle did not open")
 	}
-	var row orgRow
-	for _, r := range orgRows(u.Element.Root()) {
-		if r.e == company {
-			row = r
-		}
-	}
-	clickRect(a, row.detachButton())
+	clickRect(a, detachRow(u, company).detachButton())
 	if a.pendingDetach != company || a.showOrg {
 		t.Fatalf("detach not pending, message %q", a.message)
 	}
@@ -217,13 +280,7 @@ func TestDetachCancelsOnOtherHex(t *testing.T) {
 	a := newApp(t, game.Wehrmacht)
 	u := openBattalion(t, a)
 	clickRect(a, orgButton())
-	var row orgRow
-	for _, r := range orgRows(u.Element.Root()) {
-		if r.e == u.Element.Children[0] {
-			row = r
-		}
-	}
-	clickRect(a, row.detachButton())
+	clickRect(a, detachRow(u, u.Element.Children[0]).detachButton())
 	clickHexAt(a, game.Coord{Col: 2, Row: 2})
 	if a.pendingDetach != nil || len(a.st.Units) != 1 {
 		t.Fatalf("pending %v, units %d", a.pendingDetach, len(a.st.Units))
@@ -240,11 +297,7 @@ func TestDetachedRowSelectsItsUnit(t *testing.T) {
 	}
 	a.selectUnit(u)
 	a.openOrg()
-	for _, r := range orgRows(u.Element.Root()) {
-		if r.e == k.Element {
-			clickRect(a, r.r)
-		}
-	}
+	clickRect(a, detachRow(u, k.Element).r)
 	if a.selUnit != k || a.showOrg {
 		t.Fatalf("selected %v, window open %v", a.selUnit, a.showOrg)
 	}
@@ -253,12 +306,10 @@ func TestDetachedRowSelectsItsUnit(t *testing.T) {
 func TestNoActionsDuringAITurn(t *testing.T) {
 	a := newApp(t, game.Wehrmacht)
 	st := a.st
-	for st.Active == game.Wehrmacht {
-		st.Advance()
-	}
+	st.EndTurn()
 	clickRect(a, nextButton())
-	if st.Phase != game.PhaseAufstellung {
-		t.Errorf("phase moved during the AI turn: %v", st.Phase)
+	if st.Active != game.Sowjetunion {
+		t.Errorf("turn passed during the AI turn: %v", st.Active)
 	}
 	a.selCity = nil
 	for _, o := range st.Objects {

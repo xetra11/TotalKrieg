@@ -23,11 +23,11 @@ func (s *State) PlayTurn() {
 		return
 	}
 	s.aiRecruit()
-	s.Advance()
-	s.aiMove()
-	s.Advance()
+	s.aiDefend()
 	s.aiAttack()
-	s.Advance()
+	s.aiAdvance()
+	s.aiAttack()
+	s.EndTurn()
 }
 
 // threatenedCities returns own cities with an enemy within threat range.
@@ -87,7 +87,8 @@ func (s *State) distanceToEnemyObject(c Coord) int {
 	return best
 }
 
-func (s *State) aiMove() {
+// aiDefend sends the nearest unit to every threatened city.
+func (s *State) aiDefend() {
 	busy := map[*Unit]bool{}
 	for _, o := range s.threatenedCities() {
 		if u := s.nearestFreeUnit(o.Pos, busy); u != nil {
@@ -95,11 +96,12 @@ func (s *State) aiMove() {
 			s.moveToward(u, o.Pos)
 		}
 	}
+}
+
+// aiAdvance moves the remaining units toward the best objective.
+func (s *State) aiAdvance() {
 	for _, u := range append([]*Unit(nil), s.Units...) {
-		if u.Faction != s.Active || busy[u] || u.Moved || u.Fresh {
-			continue
-		}
-		if s.hasWorthwhileTarget(u) {
+		if u.Faction != s.Active || u.MovesLeft == 0 {
 			continue
 		}
 		if target, ok := s.bestObjective(u); ok {
@@ -111,7 +113,7 @@ func (s *State) aiMove() {
 func (s *State) nearestFreeUnit(c Coord, busy map[*Unit]bool) *Unit {
 	var best *Unit
 	for _, u := range s.Units {
-		if u.Faction != s.Active || busy[u] || u.Fresh || u.Moved {
+		if u.Faction != s.Active || busy[u] || u.MovesLeft == 0 {
 			continue
 		}
 		if best == nil || Distance(u.Pos, c) < Distance(best.Pos, c) {
@@ -149,18 +151,12 @@ func sortedCoords(m map[Coord]int) []Coord {
 	return out
 }
 
-func (s *State) hasWorthwhileTarget(u *Unit) bool {
-	return s.bestAttackTarget(u) != nil
-}
-
-// bestAttackTarget returns the weakest adjacent enemy worth attacking.
+// bestAttackTarget returns the weakest enemy in reach worth attacking.
 func (s *State) bestAttackTarget(u *Unit) *Unit {
 	var best *Unit
-	for _, n := range u.Pos.Neighbors() {
-		e := s.UnitAt(n)
-		if e == nil || e.Faction == u.Faction {
-			continue
-		}
+	targets := s.AttackTargets(u)
+	for _, c := range sortedCoords(attackCoords(targets)) {
+		e := s.UnitAt(c)
 		if u.Strength()*10 < e.Strength()*attackRatioTenths {
 			continue
 		}
@@ -169,6 +165,14 @@ func (s *State) bestAttackTarget(u *Unit) *Unit {
 		}
 	}
 	return best
+}
+
+func attackCoords(targets map[Coord]Coord) map[Coord]int {
+	out := make(map[Coord]int, len(targets))
+	for c := range targets {
+		out[c] = 0
+	}
+	return out
 }
 
 // bestObjective picks the enemy object with the best weight for its distance.

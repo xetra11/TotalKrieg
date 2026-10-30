@@ -25,7 +25,6 @@ type State struct {
 	First   Faction // moves first every round, the human player
 	Round   int
 	Active  Faction
-	Phase   Phase
 	Objects []*Object
 	Units   []*Unit
 	Stocks  [2]Stock
@@ -70,6 +69,7 @@ func (s *State) Place(f Faction, k UnitKind, pos Coord) *Unit {
 // placeElement gives an element its own unit on the map.
 func (s *State) placeElement(e *Element, pos Coord) *Unit {
 	u := &Unit{ID: s.nextID, Faction: e.Faction, Kind: e.Kind, Pos: pos, Element: e, Name: e.Name, Short: e.Short}
+	u.MovesLeft = u.Stats().Move
 	if e.Faction == Sowjetunion {
 		u.Flag = sovietFlag(e)
 	}
@@ -118,10 +118,9 @@ func OnMap(c Coord) bool {
 
 func (s *State) beginTurn() {
 	f := s.Active
-	s.Phase = PhaseAufstellung
 	for _, u := range s.Units {
 		if u.Faction == f {
-			u.Moved, u.Attacked, u.Fresh = false, false, false
+			u.MovesLeft = u.Stats().Move
 		}
 	}
 	for _, o := range s.Objects {
@@ -143,8 +142,6 @@ func (s *State) CanRecruit(o *Object, k UnitKind) error {
 	switch {
 	case s.Over:
 		return errors.New("Die Partie ist beendet.")
-	case s.Phase != PhaseAufstellung:
-		return errors.New("Aufstellen geht nur in der Aufstellungsphase.")
 	case o == nil || !o.Kind.IsCity():
 		return errors.New("Nur Städte stellen Einheiten auf.")
 	case o.Owner != s.Active:
@@ -167,7 +164,7 @@ func (s *State) Recruit(o *Object, k UnitKind) (*Unit, error) {
 	s.Stocks[s.Active].Manpower -= Stats(s.Active, k).Cost
 	o.Recruited = true
 	u := s.Place(s.Active, k, o.Pos)
-	u.Fresh = true
+	u.MovesLeft = 0
 	return u, nil
 }
 
@@ -175,16 +172,13 @@ func (s *State) Recruit(o *Object, k UnitKind) (*Unit, error) {
 // Enemy units block, own units can be passed but not joined.
 func (s *State) Reachable(u *Unit) map[Coord]int {
 	out := map[Coord]int{}
-	if u.Moved || u.Fresh {
-		return out
-	}
 	dist := map[Coord]int{u.Pos: 0}
 	frontier := []Coord{u.Pos}
 	for len(frontier) > 0 {
 		c := frontier[0]
 		frontier = frontier[1:]
 		d := dist[c]
-		if d == u.Stats().Move {
+		if d == u.MovesLeft {
 			continue
 		}
 		for _, n := range c.Neighbors() {
@@ -208,26 +202,52 @@ func (s *State) Reachable(u *Unit) map[Coord]int {
 	return out
 }
 
-// Move relocates a unit during the movement phase.
+// Move relocates a unit and spends its movement. Moving onto an enemy is an
+// attack, see AttackTargets.
 func (s *State) Move(u *Unit, to Coord) error {
 	switch {
 	case s.Over:
 		return errors.New("Die Partie ist beendet.")
-	case s.Phase != PhaseBewegung:
-		return errors.New("Bewegen geht nur in der Bewegungsphase.")
 	case u.Faction != s.Active:
 		return errors.New("Diese Einheit gehört dir nicht.")
-	case u.Fresh:
-		return errors.New("Neue Einheiten ziehen erst in der nächsten Runde.")
-	case u.Moved:
-		return errors.New("Diese Einheit ist schon gezogen.")
+	case u.MovesLeft == 0:
+		return errors.New("Diese Einheit kann in dieser Runde nicht mehr ziehen.")
 	}
-	if _, ok := s.Reachable(u)[to]; !ok {
+	d, ok := s.Reachable(u)[to]
+	if !ok {
 		return errors.New("Dieses Feld ist nicht erreichbar.")
 	}
 	u.Pos = to
-	u.Moved = true
+	u.MovesLeft -= d
 	return nil
+}
+
+// AttackTargets maps each enemy hex the unit can move onto to the hex it
+// attacks from. That is the nearest hex next to the enemy.
+func (s *State) AttackTargets(u *Unit) map[Coord]Coord {
+	out := map[Coord]Coord{}
+	if u.MovesLeft == 0 {
+		return out
+	}
+	reach := s.Reachable(u)
+	reach[u.Pos] = 0
+	best := map[Coord]int{}
+	for _, c := range sortedCoords(reach) {
+		d := reach[c]
+		if d >= u.MovesLeft {
+			continue
+		}
+		for _, n := range c.Neighbors() {
+			e := s.UnitAt(n)
+			if e == nil || e.Faction == u.Faction {
+				continue
+			}
+			if old, seen := best[n]; !seen || d < old {
+				best[n], out[n] = d, c
+			}
+		}
+	}
+	return out
 }
 
 // CanAttack explains why a unit can't attack a hex, or returns nil.
@@ -235,30 +255,25 @@ func (s *State) CanAttack(u *Unit, target Coord) error {
 	switch {
 	case s.Over:
 		return errors.New("Die Partie ist beendet.")
-	case s.Phase != PhaseAngriff:
-		return errors.New("Angreifen geht nur in der Angriffsphase.")
 	case u.Faction != s.Active:
 		return errors.New("Diese Einheit gehört dir nicht.")
-	case u.Attacked:
-		return errors.New("Diese Einheit hat schon angegriffen.")
-	case Distance(u.Pos, target) != 1:
-		return errors.New("Das Ziel muss direkt benachbart sein.")
 	}
-	d := s.UnitAt(target)
-	if d == nil || d.Faction == u.Faction {
-		return errors.New("Dort steht keine feindliche Einheit.")
+	if _, ok := s.AttackTargets(u)[target]; !ok {
+		return errors.New("Dieses Ziel ist nicht erreichbar.")
 	}
 	return nil
 }
 
-// Attack resolves a fight. Both sides roll, and each loses the opposing
-// strength times the opposing roll, rounded up.
+// Attack moves a unit next to the target and resolves the fight automatically.
+// Both sides roll, and each loses the opposing strength times the opposing
+// roll, rounded up. An attack ends the unit's movement.
 func (s *State) Attack(u *Unit, target Coord) (Report, error) {
 	if err := s.CanAttack(u, target); err != nil {
 		return Report{}, err
 	}
 	d := s.UnitAt(target)
-	u.Attacked = true
+	u.Pos = s.AttackTargets(u)[target]
+	u.MovesLeft = 0
 
 	defenderPercent := s.rollPercent()
 	if o := s.ObjectAt(target); o != nil && o.Kind.IsCity() {
@@ -314,19 +329,11 @@ func (s *State) remove(u *Unit) {
 	}
 }
 
-// Advance moves to the next phase, or ends the turn after the attack phase.
-func (s *State) Advance() {
+// EndTurn takes objects under the active faction's units and passes the turn.
+func (s *State) EndTurn() {
 	if s.Over {
 		return
 	}
-	if s.Phase != PhaseAngriff {
-		s.Phase++
-		return
-	}
-	s.endTurn()
-}
-
-func (s *State) endTurn() {
 	f := s.Active
 	for _, u := range s.Units {
 		if u.Faction != f {

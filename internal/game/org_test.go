@@ -15,7 +15,6 @@ func openField() *State {
 	s := New(5, Wehrmacht)
 	clearField(s)
 	s.Objects = nil
-	s.Phase = PhaseBewegung
 	return s
 }
 
@@ -129,11 +128,6 @@ func TestDetachRules(t *testing.T) {
 	u := s.Place(Wehrmacht, Bataillon, Coord{5, 5})
 	c := firstCompany(u)
 
-	s.Phase = PhaseAngriff
-	if _, err := s.Detach(c, Coord{6, 5}); err == nil {
-		t.Error("detached outside the movement phase")
-	}
-	s.Phase = PhaseBewegung
 	if _, err := s.Detach(c, Coord{8, 5}); err == nil {
 		t.Error("detached onto a far hex")
 	}
@@ -141,7 +135,7 @@ func TestDetachRules(t *testing.T) {
 	if _, err := s.Detach(c, Coord{6, 5}); err == nil {
 		t.Error("detached onto an occupied hex")
 	}
-	u.Moved = true
+	u.MovesLeft = 1
 	if err := s.CanDetach(c); err == nil {
 		t.Error("detached after the parent moved")
 	}
