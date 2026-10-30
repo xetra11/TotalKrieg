@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Operational Layer Mock</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&amp;family=Kalam:wght@700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#1b1e18}
+button{font-family:inherit;color:inherit;cursor:pointer}
+button:disabled{cursor:not-allowed}
+button:focus-visible{outline:3px solid #d9bc62;outline-offset:2px}
+.hov:hover:enabled{filter:brightness(1.18)}
+@keyframes battlepulse{0%{transform:scale(.7);opacity:.9}100%{transform:scale(1.55);opacity:0}}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none !important}}
+</style>
+</helmet>
+
+<div style="position: relative; width: 1600px; height: 900px; overflow: hidden; background: #1b1e18; color: #e8e5d8; font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif; font-size: 16px">
+
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+<defs>
+<g id="p-army"><rect x="6" y="3" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"></rect><rect x="6" y="3" width="13" height="13" fill="currentColor"></rect><rect x="19" y="16" width="13" height="13" fill="currentColor"></rect></g>
+<g id="p-corps"><rect x="6" y="3" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2"></rect><path d="M6 3H32L19 16ZM6 29H32L19 16Z" fill="currentColor"></path></g>
+<g id="p-div"><path d="M6 3L33 15L6 27Z" fill="none" stroke="currentColor" stroke-width="2"></path><path d="M6 3L25 11.5H6ZM6 18.5H25L6 27Z" fill="currentColor"></path></g>
+<g id="p-brig"><path d="M6 3L33 15L6 27ZM6 15H33" fill="none" stroke="currentColor" stroke-width="2"></path></g>
+<g id="p-regt"><rect x="6" y="3" width="26" height="24" fill="currentColor"></rect></g>
+<g id="p-abt"><path d="M6 3L33 15L6 27Z" fill="currentColor"></path></g>
+<path id="b-long" d="M6 1V44" fill="none" stroke="currentColor" stroke-width="2.4"></path>
+<path id="b-mid" d="M6 1V34" fill="none" stroke="currentColor" stroke-width="2.4"></path>
+<path id="b-short" d="M6 1V30" fill="none" stroke="currentColor" stroke-width="2.4"></path>
+<path id="b-pz" d="M2 34H27L36 52H11Z" fill="none" stroke="currentColor" stroke-width="2.2"></path>
+<g id="b-gren"><rect x="3" y="34" width="33" height="18" fill="none" stroke="currentColor" stroke-width="2.2"></rect><circle cx="12" cy="43" r="3.6" fill="none" stroke="currentColor" stroke-width="2"></circle><ellipse cx="25" cy="43" rx="7" ry="3.6" fill="none" stroke="currentColor" stroke-width="2"></ellipse></g>
+<path id="b-art" d="M21 33V53M16 37V49M26 37V49" fill="none" stroke="currentColor" stroke-width="2.2"></path>
+<path id="b-jg" d="M11 33H31M21 33V53" fill="none" stroke="currentColor" stroke-width="2.4"></path>
+<path id="b-pi" d="M21 53V36M15 41L21 35L27 41M15 37L21 31L27 37" fill="none" stroke="currentColor" stroke-width="2.2"></path>
+<path id="b-nb" d="M14 34H28L34 52H8Z" fill="none" stroke="currentColor" stroke-width="2.2"></path>
+
+<symbol id="army" viewBox="0 0 40 54"><use href="#b-long"></use><use href="#p-army"></use></symbol>
+<symbol id="corps" viewBox="0 0 40 54"><use href="#b-long"></use><use href="#p-corps"></use></symbol>
+<symbol id="corps-pz" viewBox="0 0 40 54"><use href="#b-mid"></use><use href="#p-corps"></use><use href="#b-pz"></use></symbol>
+<symbol id="div" viewBox="0 0 40 54"><use href="#b-long"></use><use href="#p-div"></use></symbol>
+<symbol id="div-pz" viewBox="0 0 40 54"><use href="#b-mid"></use><use href="#p-div"></use><use href="#b-pz"></use></symbol>
+<symbol id="div-gren" viewBox="0 0 40 54"><use href="#b-mid"></use><use href="#p-div"></use><use href="#b-gren"></use></symbol>
+<symbol id="brig" viewBox="0 0 40 54"><use href="#b-long"></use><use href="#p-brig"></use></symbol>
+<symbol id="brig-pz" viewBox="0 0 40 54"><use href="#b-mid"></use><use href="#p-brig"></use><use href="#b-pz"></use></symbol>
+<symbol id="regt" viewBox="0 0 40 54"><use href="#b-long"></use><use href="#p-regt"></use></symbol>
+<symbol id="abt" viewBox="0 0 40 54"><use href="#b-long"></use><use href="#p-abt"></use></symbol>
+<symbol id="abt-art" viewBox="0 0 40 54"><use href="#b-short"></use><use href="#p-abt"></use><use href="#b-art"></use></symbol>
+<symbol id="abt-jg" viewBox="0 0 40 54"><use href="#b-short"></use><use href="#p-abt"></use><use href="#b-jg"></use></symbol>
+<symbol id="abt-pi" viewBox="0 0 40 54"><use href="#b-short"></use><use href="#p-abt"></use><use href="#b-pi"></use></symbol>
+<symbol id="abt-nb" viewBox="0 0 40 54"><use href="#b-short"></use><use href="#p-abt"></use><use href="#b-nb"></use></symbol>
+<symbol id="l-pz" viewBox="0 28 40 28"><use href="#b-pz"></use></symbol>
+<symbol id="l-gren" viewBox="0 28 40 28"><use href="#b-gren"></use></symbol>
+<symbol id="l-art" viewBox="0 28 40 28"><use href="#b-art"></use></symbol>
+<symbol id="l-jg" viewBox="0 28 40 28"><use href="#b-jg"></use></symbol>
+<symbol id="l-pi" viewBox="0 28 40 28"><use href="#b-pi"></use></symbol>
+<symbol id="l-nb" viewBox="0 28 40 28"><use href="#b-nb"></use></symbol>
+
+<symbol id="g-hex" viewBox="0 0 64 64"><path d="M20 8L32 8L38 18L32 28L20 28L14 18ZM38 18L50 18L56 28L50 38L38 38L32 28M20 28L14 38L20 48L32 48L38 38M32 48L38 58L50 58L56 48L50 38" fill="none" stroke="currentColor" stroke-width="2"></path><rect x="19" y="32" width="14" height="12" fill="currentColor"></rect></symbol>
+<symbol id="g-mius" viewBox="0 0 64 64"><path d="M6 20C18 10 34 12 42 22S58 34 60 28M6 34C18 24 30 26 38 34S54 46 60 42M6 48C16 40 26 42 34 48S50 58 60 56" fill="none" stroke="currentColor" stroke-width="2"></path><path d="M22 4C28 16 20 28 28 40S24 54 30 62" fill="none" stroke="currentColor" stroke-width="4"></path></symbol>
+<symbol id="g-combat" viewBox="0 0 64 64"><path d="M32 8L60 24L32 40L4 24ZM18 16L46 32M32 8L4 24M46 16L18 32M4 24V40L32 56V40M60 24V40L32 56" fill="none" stroke="currentColor" stroke-width="2"></path><circle cx="32" cy="24" r="5" fill="currentColor"></circle></symbol>
+
+<symbol id="i-swords" viewBox="0 0 32 32"><path d="M6 6L25 25M26 6L7 25M20 25L26 19M6 19L12 25" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"></path></symbol>
+<symbol id="i-check" viewBox="0 0 20 20"><path d="M4 11L8 15L16 5" fill="none" stroke="currentColor" stroke-width="2.6"></path></symbol>
+</defs>
+</svg>
+
+<!-- Top bar -->
+<div style="position: absolute; left: 0; top: 0; width: 1600px; height: 60px; box-sizing: border-box; padding: 0 16px; display: flex; align-items: center; gap: 24px; background: #23261f; border-bottom: 2px solid #0f110d">
+  <div style="display: flex; align-items: center; gap: 10px; width: 186px">
+    <svg width="30" height="40" aria-hidden="true" style="color: #e8e5d8"><use href="#army"></use></svg>
+    <div>
+      <div style="font-size: 22px; font-weight: 700; line-height: 1">6. Armee</div>
+      <div style="font-size: 14px; color: #b9baab; line-height: 1.2; margin-top: 3px">Heeresgruppe Süd</div>
+    </div>
+  </div>
+  <div style="display: flex; height: 60px">
+    <button class="hov" style="min-width: 70px; padding: 0 12px; border: 0; border-bottom: 3px solid #d9bc62; background: transparent; font-size: 18px; font-weight: 600">Map</button>
+    <button class="hov" style="min-width: 70px; padding: 0 12px; border: 0; border-bottom: 3px solid transparent; background: transparent; font-size: 18px; font-weight: 500; color: #c9c9ba">Forces</button>
+    <button class="hov" style="min-width: 70px; padding: 0 12px; border: 0; border-bottom: 3px solid transparent; background: transparent; font-size: 18px; font-weight: 500; color: #c9c9ba">Logistics</button>
+    <button class="hov" onClick="{{openPopup}}" style="min-width: 70px; padding: 0 12px; border: 0; border-bottom: 3px solid transparent; background: transparent; font-size: 18px; font-weight: 500; color: #c9c9ba; display: flex; align-items: center; gap: 8px">Battles <span style="min-width: 22px; height: 22px; border-radius: 11px; background: #c8362a; color: #fff; font-size: 15px; font-weight: 700; line-height: 22px">1</span></button>
+  </div>
+  <div style="flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: 14px">
+    <div style="display: flex; align-items: flex-end; gap: 3px; height: 22px" aria-hidden="true">
+      <span style="width: 7px; height: 8px; background: #5a5f50"></span>
+      <span style="width: 7px; height: 12px; background: #5a5f50"></span>
+      <span style="width: 7px; height: 16px; background: #5a5f50"></span>
+      <span style="width: 7px; height: 19px; background: #5a5f50"></span>
+      <span style="width: 7px; height: 22px; background: #5a5f50"></span>
+    </div>
+    <div>
+      <div style="font-size: 22px; font-weight: 700; line-height: 1">18 July 1943, 05:40</div>
+      <div style="font-size: 14px; color: #d9bc62; line-height: 1.2; margin-top: 3px">{{statusText}}</div>
+    </div>
+  </div>
+  <div style="display: flex; gap: 22px">
+    <div><div style="font-size: 14px; color: #b9baab; line-height: 1">Manpower</div><div style="font-size: 20px; font-weight: 600; line-height: 1.2">148,200</div></div>
+    <div><div style="font-size: 14px; color: #b9baab; line-height: 1">Fuel</div><div style="font-size: 20px; font-weight: 600; line-height: 1.2">61%</div></div>
+    <div><div style="font-size: 14px; color: #b9baab; line-height: 1">Ammunition</div><div style="font-size: 20px; font-weight: 600; line-height: 1.2">48%</div></div>
+    <div><div style="font-size: 14px; color: #b9baab; line-height: 1">Reserves</div><div style="font-size: 20px; font-weight: 600; line-height: 1.2">2 Div.</div></div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 8px; padding-left: 18px; border-left: 1px solid #4b5044; height: 36px">
+    <span style="width: 10px; height: 10px; border-radius: 5px; background: #7fbf6a"></span>
+    <div>
+      <div style="font-size: 14px; color: #b9baab; line-height: 1">Opponent</div>
+      <div style="font-size: 17px; font-weight: 600; line-height: 1.2">Southern Front</div>
+    </div>
+  </div>
+</div>
+
+<!-- Map -->
+<div style="position: absolute; left: 0; top: 60px; width: 1240px; height: 840px; overflow: hidden; background: #e5e1d0">
+  <svg width="1240" height="840" viewBox="0 0 1240 840" role="img" aria-label="Situation map of the Mius front with the Soviet bridgehead around Marinowka" style="position: absolute; left: 0; top: 0">
+    <path d="M0,0 H612 C606,50 586,100 600,160 C612,205 604,240 566,272 C530,300 476,312 440,340 C412,364 398,400 408,440 C416,478 446,510 492,526 C546,544 604,552 640,590 C668,622 652,668 674,716 C694,762 730,790 748,840 H0 Z" fill="#2c5ea8" fill-opacity="0.09"></path>
+    <path d="M612,0 H1240 V840 H748 C730,790 694,762 674,716 C652,668 668,622 640,590 C604,552 546,544 492,526 C446,510 416,478 408,440 C398,400 412,364 440,340 C476,312 530,300 566,272 C604,240 612,205 600,160 C586,100 606,50 612,0 Z" fill="#c8362a" fill-opacity="0.11"></path>
+
+    <!-- Sheet grid and fold lines -->
+    <path d="M155 0V840M310 0V840M465 0V840M620 0V840M775 0V840M930 0V840M1085 0V840M0 140H1240M0 280H1240M0 420H1240M0 560H1240M0 700H1240" fill="none" stroke="#6f6a58" stroke-width="0.7" stroke-opacity="0.45"></path>
+    <path d="M620 0V840M0 420H1240" fill="none" stroke="#fbf8ec" stroke-width="2" stroke-opacity="0.5"></path>
+    <g font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="15" font-weight="600" fill="#5b5747">
+      <text x="72" y="16">A</text><text x="227" y="16">B</text><text x="382" y="16">C</text><text x="537" y="16">D</text><text x="692" y="16">E</text><text x="847" y="16">F</text><text x="1002" y="16">G</text><text x="1157" y="16">H</text>
+      <text x="6" y="74">1</text><text x="6" y="214">2</text><text x="6" y="354">3</text><text x="6" y="494">4</text><text x="6" y="634">5</text><text x="6" y="774">6</text>
+    </g>
+
+    <!-- Relief -->
+    <g fill="none" stroke="#a48d63" stroke-width="1" stroke-opacity="0.8">
+      <path d="M452,236 C462,178 548,160 588,194 C622,226 600,298 534,306 C482,312 442,282 452,236 Z"></path>
+      <path d="M472,236 C480,196 540,182 570,206 C596,230 578,282 530,288 C492,292 464,268 472,236 Z"></path>
+      <path d="M494,238 C500,214 532,206 550,220 C564,234 552,262 526,264 C506,266 490,256 494,238 Z"></path>
+      <path d="M210,70 C260,30 380,40 400,90 C414,132 320,160 250,144 C200,132 176,100 210,70 Z"></path>
+      <path d="M244,84 C276,60 350,64 362,94 C370,118 310,132 266,122 C236,114 224,100 244,84 Z"></path>
+      <path d="M880,150 C950,110 1060,130 1060,190 C1056,240 950,256 890,232 C846,212 840,174 880,150 Z"></path>
+      <path d="M916,166 C960,142 1026,156 1026,192 C1024,222 958,232 920,218 C892,206 888,182 916,166 Z"></path>
+      <path d="M960,470 C1020,430 1150,450 1150,520 C1146,580 1010,590 960,560 C926,536 924,494 960,470 Z"></path>
+      <path d="M996,490 C1036,464 1116,476 1116,520 C1114,556 1032,564 998,544 C974,530 972,506 996,490 Z"></path>
+      <path d="M60,600 C100,560 200,570 206,630 C208,680 110,700 70,676 C36,654 34,624 60,600 Z"></path>
+      <path d="M90,616 C116,592 176,598 178,632 C178,660 118,672 94,658 C74,646 72,632 90,616 Z"></path>
+    </g>
+    <path d="M356,262 L388,300 L382,332 M388,300 L414,310 M760,240 L796,262 L806,296 M796,262 L826,256 M880,660 L920,680 L926,716 M920,680 L952,672 M150,250 L120,284 L126,316 M120,284 L92,290" fill="none" stroke="#7d6b47" stroke-width="1.4"></path>
+
+    <!-- Water -->
+    <g fill="none" stroke="#5f93b3" stroke-linecap="round">
+      <path d="M650,0 C640,60 612,110 628,170 C640,215 640,262 618,318 C596,372 596,412 632,452 C664,488 694,526 676,590 C664,636 684,684 720,738 C744,776 762,806 772,840" stroke-width="4.5"></path>
+      <path d="M150,0 C190,130 130,260 220,380 C300,480 350,570 470,620 C560,655 620,655 672,622" stroke-width="2.6"></path>
+    </g>
+    <text x="646" y="232" transform="rotate(84 646 232)" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-style="italic" font-size="19" font-weight="500" fill="#2f6a8d">Mius</text>
+    <text x="258" y="440" transform="rotate(50 258 440)" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-style="italic" font-size="16" font-weight="500" fill="#2f6a8d">Krynka</text>
+
+    <!-- Roads and rail -->
+    <g fill="none" stroke="#8a6a3a" stroke-width="1.5">
+      <path d="M250,560 C320,510 390,470 452,418"></path>
+      <path d="M452,418 L478,356 C500,280 440,180 430,96"></path>
+      <path d="M452,418 C500,440 540,445 585,440 L690,420"></path>
+      <path d="M690,420 C800,360 950,260 1090,150"></path>
+      <path d="M640,660 C700,600 690,500 690,420"></path>
+      <path d="M690,420 C760,540 800,660 830,770"></path>
+      <path d="M430,96 C560,60 700,50 800,70"></path>
+    </g>
+    <path d="M0,690 C120,650 190,590 250,560 C360,600 520,640 640,660 C720,680 780,740 830,770 C960,800 1100,790 1240,760" fill="none" stroke="#23231d" stroke-width="3.4"></path>
+    <path d="M0,690 C120,650 190,590 250,560 C360,600 520,640 640,660 C720,680 780,740 830,770 C960,800 1100,790 1240,760" fill="none" stroke="#e5e1d0" stroke-width="1.6" stroke-dasharray="9 9"></path>
+
+    <!-- Towns -->
+    <g fill="#23231d">
+      <rect x="424" y="90" width="12" height="9"></rect><rect x="794" y="64" width="13" height="9"></rect><rect x="1084" y="144" width="12" height="9"></rect>
+      <rect x="472" y="350" width="11" height="8"></rect><rect x="446" y="412" width="11" height="8"></rect><rect x="579" y="434" width="11" height="8"></rect>
+      <rect x="684" y="414" width="12" height="9"></rect><rect x="634" y="654" width="11" height="8"></rect><rect x="244" y="554" width="12" height="9"></rect><rect x="824" y="764" width="12" height="9"></rect>
+    </g>
+    <path d="M522 230L530 244H514Z" fill="#23231d"></path>
+    <g font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="16" font-weight="500" fill="#23231d">
+      <text x="414" y="86" text-anchor="end">Snjeshnoje</text>
+      <text x="812" y="74">Krasnyj Lutsch</text>
+      <text x="1102" y="154">Rowenki</text>
+      <text x="490" y="374">Stepanowka</text>
+      <text x="490" y="430">Marinowka</text>
+      <text x="594" y="434">Dmitrijewka</text>
+      <text x="702" y="412">Kuibyschewo</text>
+      <text x="620" y="672" text-anchor="end">Uspenskaja</text>
+      <text x="234" y="552" text-anchor="end">Amwrossijewka</text>
+      <text x="846" y="760">Matwejew Kurgan</text>
+      <text x="522" y="224" text-anchor="middle">Saur-Mogila</text>
+      <text x="522" y="262" text-anchor="middle">277,9</text>
+      <text x="16" y="722" font-style="italic" fill="#4d4a3d">nach Stalino</text>
+      <text x="1228" y="752" font-style="italic" fill="#4d4a3d" text-anchor="end">nach Rostow</text>
+    </g>
+
+    <!-- Corps boundaries -->
+    <g fill="none" stroke="#1d1d18" stroke-width="2.2" stroke-dasharray="46 6 4 6">
+      <path d="M0,250 C140,260 300,280 430,345"></path>
+      <path d="M0,490 C120,500 300,545 470,520"></path>
+    </g>
+
+    <!-- Front line, grease pencil -->
+    <path d="M612,0 C606,50 586,100 600,160 C612,205 604,240 566,272 C530,300 476,312 440,340 C412,364 398,400 408,440 C416,478 446,510 492,526 C546,544 604,552 640,590 C668,622 652,668 674,716 C694,762 730,790 748,840" fill="none" stroke="#c8281c" stroke-width="3" stroke-dasharray="12 8" transform="translate(9 3)"></path>
+    <path d="M612,0 C606,50 586,100 600,160 C612,205 604,240 566,272 C530,300 476,312 440,340 C412,364 398,400 408,440 C416,478 446,510 492,526 C546,544 604,552 640,590 C668,622 652,668 674,716 C694,762 730,790 748,840" fill="none" stroke="#1c4fa0" stroke-width="5" stroke-linecap="round"></path>
+
+    <!-- Attack arrows -->
+    <g fill="none" stroke="#c8281c" stroke-width="9" stroke-opacity="0.82">
+      <path d="M700,385 C640,370 570,378 510,398"></path>
+      <path d="M720,490 C670,510 610,515 556,505"></path>
+      <path d="M760,220 C700,230 640,240 600,250"></path>
+    </g>
+    <g fill="#c8281c" fill-opacity="0.82">
+      <path d="M489,405 L513.8,409.4 L506.2,386.6 Z"></path>
+      <path d="M534,501 L558.2,493.2 L553.8,516.8 Z"></path>
+      <path d="M579,255 L602.9,261.6 L597.1,238.4 Z"></path>
+    </g>
+    <g fill="none" stroke="#1c4fa0" stroke-width="6">
+      <path d="M372,398 C388,398 402,401 420,405"></path>
+      <path d="M396,510 C410,490 420,478 432,462"></path>
+    </g>
+    <g fill="#1c4fa0">
+      <path d="M438,409 L417.7,414.7 L422.3,395.3 Z"></path>
+      <path d="M443,447 L440,468 L424,456 Z"></path>
+    </g>
+
+    <!-- Scale and north -->
+    <g font-family="Barlow Condensed, Arial Narrow, sans-serif" font-size="14" font-weight="500" fill="#23231d">
+      <rect x="1040" y="806" width="60" height="6" fill="#23231d"></rect>
+      <rect x="1100" y="806" width="60" height="6" fill="none" stroke="#23231d" stroke-width="1"></rect>
+      <text x="1040" y="802">0</text><text x="1094" y="802">10</text><text x="1150" y="802">20 km</text>
+      <path d="M1196 816L1204 786L1212 816L1204 809Z"></path>
+      <text x="1199" y="782">N</text>
+    </g>
+  </svg>
+
+  <!-- Map title block -->
+  <div style="position: absolute; left: 28px; top: 28px; width: 214px; box-sizing: border-box; padding: 8px 12px; background: #efebdb; border: 2px solid #23231d; color: #23231d">
+    <div style="font-size: 21px; font-weight: 700; line-height: 1.05">Lagekarte 6. Armee</div>
+    <div style="font-size: 15px; font-weight: 500; line-height: 1.25">Stand 18.7.43, 05.40 Uhr</div>
+    <div style="position: absolute; right: 8px; bottom: -12px; padding: 0 6px; border: 2px solid #b5261b; background: #efebdb; color: #b5261b; font-size: 15px; font-weight: 700; transform: rotate(-5deg)">Geheim!</div>
+  </div>
+
+  <!-- Unit symbols -->
+  <sc-for list="{{units}}" as="u" hint-placeholder-count="24">
+    <div style="position: absolute; left: {{u.x}}px; top: {{u.y}}px; color: {{u.color}}; display: flex; align-items: flex-start; gap: 1px">
+      <svg width="34" height="46" aria-hidden="true"><use href="#{{u.sym}}"></use></svg>
+      <span style="font-family: Kalam, 'Comic Sans MS', cursive; font-weight: 700; font-size: 18px; line-height: 1.1; white-space: nowrap; margin-top: 12px">{{u.label}}</span>
+    </div>
+  </sc-for>
+
+  <!-- Battle marker -->
+  <button class="hov" onClick="{{openPopup}}" aria-label="Open the battle at Marinowka" style="position: absolute; left: 424px; top: 390px; width: 56px; height: 56px; padding: 0; border: 0; background: transparent">
+    <span class="pulse" style="position: absolute; left: 0; top: 0; width: 56px; height: 56px; box-sizing: border-box; border: 4px solid #1b1e18; border-radius: 28px; animation: battlepulse 1.8s ease-out infinite"></span>
+    <span style="position: absolute; left: 8px; top: 8px; width: 40px; height: 40px; box-sizing: border-box; border: 2px solid #1b1e18; border-radius: 20px; background: #d9bc62; color: #1b1e18; display: flex; align-items: center; justify-content: center">
+      <svg width="26" height="26" aria-hidden="true"><use href="#i-swords"></use></svg>
+    </span>
+  </button>
+</div>
+
+<!-- Right sidebar -->
+<div style="position: absolute; left: 1240px; top: 60px; width: 360px; height: 840px; box-sizing: border-box; display: flex; flex-direction: column; background: #2a2e27; border-left: 2px solid #0f110d">
+  <div style="padding: 12px 16px 8px">
+    <h2 style="margin: 0 0 6px; font-size: 18px; font-weight: 700; color: #d9bc62">Order of battle</h2>
+    <sc-for list="{{oob}}" as="r" hint-placeholder-count="10">
+      <div style="display: flex; align-items: center; gap: 8px; height: 29px; padding-left: {{r.indent}}px">
+        <svg width="18" height="25" aria-hidden="true" style="color: #e8e5d8"><use href="#{{r.sym}}"></use></svg>
+        <span style="flex: 1 1 auto; font-size: 17px; font-weight: {{r.weight}}">{{r.label}}</span>
+        <span style="font-size: 15px; color: {{r.statusColor}}">{{r.status}}</span>
+      </div>
+    </sc-for>
+  </div>
+  <div style="padding: 10px 16px; border-top: 1px solid #4b5044; flex: 1 1 auto">
+    <h2 style="margin: 0 0 6px; font-size: 18px; font-weight: 700; color: #d9bc62">Front reports</h2>
+    <sc-for list="{{log}}" as="l" hint-placeholder-count="4">
+      <div style="display: flex; gap: 10px; font-size: 16px; line-height: 1.2; padding: 3px 0">
+        <span style="flex: 0 0 78px; color: #b9baab">{{l.time}}</span>
+        <span>{{l.text}}</span>
+      </div>
+    </sc-for>
+  </div>
+  <div style="padding: 10px 16px 12px; background: #e5e1d0; color: #23231d">
+    <h2 style="margin: 0 0 6px; font-size: 18px; font-weight: 700">Zeichenerklärung</h2>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; row-gap: 2px">
+      <sc-for list="{{legend}}" as="k" hint-placeholder-count="12">
+        <div style="display: flex; align-items: center; gap: 8px; height: 34px; color: #1c4fa0">
+          <svg width="{{k.w}}" height="{{k.h}}" aria-hidden="true" style="flex: 0 0 auto"><use href="#{{k.sym}}"></use></svg>
+          <span style="font-size: 15px; font-weight: 500; line-height: 1.05; color: #23231d">{{k.label}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+
+<!-- Battle popup -->
+<sc-if value="{{showPopup}}" hint-placeholder-val="{{ true }}">
+  <svg width="820" height="480" aria-hidden="true" style="position: absolute; left: 0; top: 0; pointer-events: none">
+    <path d="M478 466L640 240H812" fill="none" stroke="#1b1e18" stroke-width="2" stroke-dasharray="7 5"></path>
+    <circle cx="478" cy="466" r="4" fill="#1b1e18"></circle>
+  </svg>
+  <section role="dialog" aria-modal="true" aria-labelledby="battle-q" style="position: absolute; left: 812px; top: 78px; width: 764px; background: #23261f; box-shadow: 0 0 0 1px #0f110d, 0 0 0 3px #5a5f50, 10px 12px 0 3px rgba(15,17,13,.45)">
+    <div style="padding: 18px 24px 14px">
+      <div style="font-size: 16px; font-weight: 600; color: #d9bc62">Battle commenced at Marinowka, Mius bridgehead, Planquadrat C3</div>
+      <h1 id="battle-q" style="margin: 4px 0 0; font-size: 36px; font-weight: 700; line-height: 1.05">{{popupTitle}}</h1>
+    </div>
+
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr); align-items: center; gap: 8px; padding: 12px 24px; background: #181a15">
+      <div style="display: flex; gap: 12px; align-items: center">
+        <span style="flex: 0 0 auto; width: 48px; height: 62px; background: #e5e1d0; color: #1c4fa0; display: flex; align-items: center; justify-content: center"><svg width="38" height="52" aria-hidden="true"><use href="#div-pz"></use></svg></span>
+        <div>
+          <div style="font-size: 15px; font-weight: 600; color: #a9c3ee">Attacker, you</div>
+          <div style="font-size: 21px; font-weight: 700; line-height: 1.1">23. Pz.Div.</div>
+          <div style="font-size: 15px; color: #c9c9ba; line-height: 1.25">4,200 men, 38 tanks, 24 guns</div>
+        </div>
+      </div>
+      <div style="text-align: center; font-size: 18px; font-weight: 700; color: #b9baab">vs</div>
+      <div style="display: flex; gap: 12px; align-items: center">
+        <span style="flex: 0 0 auto; width: 48px; height: 62px; background: #e5e1d0; color: #c8281c; display: flex; align-items: center; justify-content: center"><svg width="38" height="52" aria-hidden="true"><use href="#div"></use></svg></span>
+        <div>
+          <div style="font-size: 15px; font-weight: 600; color: #f0a79f">Defender, opponent</div>
+          <div style="font-size: 21px; font-weight: 700; line-height: 1.1">96. Gd.Schtz.Div.</div>
+          <div style="font-size: 15px; color: #c9c9ba; line-height: 1.25">6,100 men, 31 tanks, 46 guns</div>
+        </div>
+      </div>
+    </div>
+
+    <sc-if value="{{choosing}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding: 14px 24px 0">
+        <sc-for list="{{options}}" as="o" hint-placeholder-count="3">
+          <button class="hov" onClick="{{o.pick}}" aria-pressed="{{o.isPicked}}" style="display: grid; grid-template-columns: 72px minmax(0, 1fr) 196px; gap: 14px; align-items: center; width: 100%; min-height: 110px; box-sizing: border-box; padding: 10px 14px 10px 10px; text-align: left; background: {{o.bg}}; border: 2px solid {{o.border}}">
+            <span style="width: 72px; height: 72px; background: #e5e1d0; color: #23231d; display: flex; align-items: center; justify-content: center"><svg width="60" height="60" aria-hidden="true"><use href="#{{o.glyph}}"></use></svg></span>
+            <span style="display: block; min-width: 0">
+              <span style="display: block; font-size: 26px; font-weight: 700; line-height: 1.05">{{o.name}}</span>
+              <span style="display: block; font-size: 17px; color: #c9c9ba; line-height: 1.2">{{o.sub}}</span>
+              <span style="display: flex; gap: 6px; margin-top: 6px; min-height: 24px">
+                <sc-if value="{{o.isPicked}}" hint-placeholder-val="{{ false }}"><span style="padding: 1px 8px; background: #d9bc62; color: #1b1e18; font-size: 15px; font-weight: 700">Your pick</span></sc-if>
+                <sc-if value="{{o.isOpp}}" hint-placeholder-val="{{ false }}"><span style="padding: 1px 8px; background: #b5261b; color: #fff; font-size: 15px; font-weight: 700">Opponent's pick</span></sc-if>
+              </span>
+            </span>
+            <span style="display: block; font-size: 16px; line-height: 1.2">
+              <span style="display: block; color: #b9baab; font-size: 14px">Pace</span>
+              <span style="display: block; font-weight: 600">{{o.pace}}</span>
+              <span style="display: block; color: #b9baab; font-size: 14px; margin-top: 4px">Scale</span>
+              <span style="display: block; font-weight: 600">{{o.scale}}</span>
+            </span>
+          </button>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: center; gap: 14px; padding: 14px 24px 18px">
+        <p style="flex: 1 1 auto; margin: 0; font-size: 16px; line-height: 1.25; color: #c9c9ba">{{ruleText}}</p>
+        <button class="hov" onClick="{{closePopup}}" style="min-height: 48px; padding: 0 18px; background: transparent; border: 2px solid #6b7060; font-size: 19px; font-weight: 600">Inspect map</button>
+        <button class="hov" onClick="{{confirm}}" disabled="{{noPick}}" style="min-height: 48px; padding: 0 22px; background: {{confirmBg}}; color: {{confirmFg}}; border: 2px solid {{confirmBg}}; font-size: 19px; font-weight: 700">Confirm choice</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{launched}}" hint-placeholder-val="{{ false }}">
+      <div style="padding: 20px 24px 8px">
+        <div style="display: flex; gap: 14px; align-items: center">
+          <span style="width: 72px; height: 72px; flex: 0 0 auto; background: #e5e1d0; color: #23231d; display: flex; align-items: center; justify-content: center"><svg width="60" height="60" aria-hidden="true"><use href="#{{chosen.glyph}}"></use></svg></span>
+          <div>
+            <div style="font-size: 28px; font-weight: 700; line-height: 1.05">{{chosen.name}}</div>
+            <div style="font-size: 17px; color: #c9c9ba">{{chosen.sub}}</div>
+            <div style="font-size: 16px; font-weight: 600; color: #d9bc62; margin-top: 2px">{{agreeText}}</div>
+          </div>
+        </div>
+        <ol style="list-style: none; margin: 18px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+          <sc-for list="{{steps}}" as="s" hint-placeholder-count="3">
+            <li style="display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; background: #2a2e27; color: {{s.color}}; font-size: 19px; font-weight: 500">
+              <span style="width: 22px; height: 22px; flex: 0 0 auto; border-radius: 11px; box-sizing: border-box; border: 2px solid {{s.color}}; display: flex; align-items: center; justify-content: center">
+                <sc-if value="{{s.done}}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" aria-hidden="true"><use href="#i-check"></use></svg></sc-if>
+              </span>
+              {{s.text}}
+            </li>
+          </sc-for>
+        </ol>
+        <p style="margin: 16px 0 0; font-size: 16px; line-height: 1.3; color: #c9c9ba">The operational map stays paused. The result returns here when the battle ends.</p>
+      </div>
+      <div style="display: flex; justify-content: flex-end; gap: 14px; padding: 14px 24px 18px">
+        <button class="hov" onClick="{{reset}}" style="min-height: 48px; padding: 0 18px; background: transparent; border: 2px solid #6b7060; font-size: 19px; font-weight: 600">Back to choice</button>
+        <button class="hov" onClick="{{closePopup}}" style="min-height: 48px; padding: 0 22px; background: #d9bc62; color: #1b1e18; border: 2px solid #d9bc62; font-size: 19px; font-weight: 700">View map</button>
+      </div>
+    </sc-if>
+  </section>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"opponentPick":{"editor":"enum","options":["hexfront","mius","combat","none"],"default":"mius"},"$preview":{"width":1600,"height":900}}'>
+const BLUE = '#1c4fa0';
+const RED = '#c8281c';
+
+const UNITS = [
+  { sym: 'army', label: '6.', x: 96, y: 330, color: BLUE },
+  { sym: 'corps', label: 'XVII.', x: 270, y: 120, color: BLUE },
+  { sym: 'corps-pz', label: 'XXIV. Pz.', x: 150, y: 400, color: BLUE },
+  { sym: 'corps', label: 'XXIX.', x: 300, y: 640, color: BLUE },
+  { sym: 'div', label: '294.', x: 500, y: 120, color: BLUE },
+  { sym: 'div', label: '306.', x: 372, y: 262, color: BLUE },
+  { sym: 'div-pz', label: '23. Pz.', x: 304, y: 368, color: BLUE },
+  { sym: 'div-gren', label: '16. Pz.Gren.', x: 250, y: 456, color: BLUE },
+  { sym: 'div', label: '336.', x: 500, y: 560, color: BLUE },
+  { sym: 'div', label: '111.', x: 590, y: 690, color: BLUE },
+  { sym: 'abt-art', label: 'Art. 128', x: 226, y: 296, color: BLUE },
+  { sym: 'abt-nb', label: 'Nb.W.', x: 60, y: 425, color: BLUE },
+  { sym: 'abt-pi', label: 'Pi. 51', x: 382, y: 566, color: BLUE },
+  { sym: 'abt-jg', label: 'Pz.Jg. 128', x: 360, y: 196, color: BLUE },
+  { sym: 'army', label: '5. Stoß.A.', x: 880, y: 330, color: RED },
+  { sym: 'army', label: '2. Gd.A.', x: 1030, y: 610, color: RED },
+  { sym: 'corps', label: '31. Gd.K.', x: 700, y: 262, color: RED },
+  { sym: 'corps-pz', label: '4. Gd.m.K.', x: 680, y: 540, color: RED },
+  { sym: 'corps-pz', label: '2. Gd.mech.K.', x: 900, y: 520, color: RED },
+  { sym: 'div', label: '96. Gd.', x: 548, y: 316, color: RED },
+  { sym: 'div', label: '40. Gd.', x: 640, y: 330, color: RED },
+  { sym: 'brig-pz', label: '32.', x: 496, y: 448, color: RED },
+  { sym: 'div', label: '34. Gd.', x: 602, y: 452, color: RED },
+  { sym: 'div', label: '127.', x: 720, y: 130, color: RED },
+  { sym: 'div', label: '130.', x: 740, y: 630, color: RED },
+];
+
+const OOB = [
+  { sym: 'army', label: '6. Armee', status: '', indent: 0, top: true },
+  { sym: 'corps', label: 'XVII. A.K.', status: '', indent: 12, top: true },
+  { sym: 'div', label: '294. I.D.', status: 'Falling back', indent: 26 },
+  { sym: 'div', label: '306. I.D.', status: 'Holding', indent: 26 },
+  { sym: 'corps-pz', label: 'XXIV. Pz.K.', status: '', indent: 12, top: true },
+  { sym: 'div-pz', label: '23. Pz.Div.', status: 'In battle', indent: 26, hot: true },
+  { sym: 'div-gren', label: '16. Pz.Gren.Div.', status: 'Moving up', indent: 26 },
+  { sym: 'corps', label: 'XXIX. A.K.', status: '', indent: 12, top: true },
+  { sym: 'div', label: '336. I.D.', status: 'Holding', indent: 26 },
+  { sym: 'div', label: '111. I.D.', status: 'Holding', indent: 26 },
+];
+
+const LOG = [
+  { time: '17.7. 05:10', text: 'Barrage along the Mius line.' },
+  { time: '17.7. 07:30', text: 'Soviet bridgehead formed at Dmitrijewka.' },
+  { time: '17.7. 16:00', text: '294. I.D. gives up Stepanowka.' },
+  { time: '18.7. 05:40', text: '23. Pz.Div. attacks at Marinowka. Battle joined.' },
+];
+
+const LEGEND = [
+  { sym: 'army', label: 'Armee', w: 22, h: 30 },
+  { sym: 'l-pz', label: 'Panzer', w: 34, h: 24 },
+  { sym: 'corps', label: 'Korps', w: 22, h: 30 },
+  { sym: 'l-gren', label: 'Panzergrenadiere', w: 34, h: 24 },
+  { sym: 'div', label: 'Division', w: 22, h: 30 },
+  { sym: 'l-art', label: 'Artillerie', w: 34, h: 24 },
+  { sym: 'brig', label: 'Brigade', w: 22, h: 30 },
+  { sym: 'l-jg', label: 'Panzerjäger', w: 34, h: 24 },
+  { sym: 'regt', label: 'Regiment', w: 22, h: 30 },
+  { sym: 'l-pi', label: 'Pioniere', w: 34, h: 24 },
+  { sym: 'abt', label: 'Abteilung', w: 22, h: 30 },
+  { sym: 'l-nb', label: 'Nebeltruppe', w: 34, h: 24 },
+];
+
+const ENGINES = [
+  {
+    id: 'hexfront', glyph: 'g-hex', name: 'Hexfront', sub: 'Advanced Squad Leader 2 Digital',
+    pace: 'Turn-based', scale: 'Squads on hexes',
+    steps: ['Forces exported as an ASL scenario', 'Opponent invited to the Hexfront session', 'Waiting for the opponent to join'],
+  },
+  {
+    id: 'mius', glyph: 'g-mius', name: 'MiusPlayer', sub: 'Mius Front Multiplayer',
+    pace: 'Real-time', scale: 'This sector, in 3D',
+    steps: ['Forces exported as a Mius Front mission', 'You host on UDP port 1943, opponent joins', 'Waiting for the opponent to press READY'],
+  },
+  {
+    id: 'combat', glyph: 'g-combat', name: 'Combat Mission Multiplayer', sub: 'Plot orders, then watch them play out',
+    pace: '60-second WeGo turns', scale: 'Every soldier, in 3D',
+    steps: ['Forces exported as a Combat Mission battle', 'Opponent invited to the multiplayer session', 'Waiting for the opponent to join'],
+  },
+];
+
+class Component extends DCLogic {
+  state = { picked: null, launched: false, step: 0, showPopup: true };
+
+  componentWillUnmount() {
+    clearInterval(this.timer);
+  }
+
+  confirm = () => {
+    if (!this.state.picked) return;
+    this.setState({ launched: true, step: 0 });
+    clearInterval(this.timer);
+    this.timer = setInterval(() => {
+      if (this.state.step >= 2) { clearInterval(this.timer); return; }
+      this.setState({ step: this.state.step + 1 });
+    }, 900);
+  };
+
+  reset = () => {
+    clearInterval(this.timer);
+    this.setState({ picked: null, launched: false, step: 0 });
+  };
+
+  renderVals() {
+    const { picked, launched, step, showPopup } = this.state;
+    const opp = this.props.opponentPick ?? 'mius';
+    const chosen = ENGINES.find((e) => e.id === picked) || ENGINES[0];
+    const oppName = (ENGINES.find((e) => e.id === opp) || {}).name;
+
+    return {
+      units: UNITS,
+      oob: OOB.map((r) => ({
+        ...r,
+        weight: r.top ? 700 : 500,
+        statusColor: r.hot ? '#f0a79f' : '#b9baab',
+      })),
+      log: LOG,
+      legend: LEGEND,
+      showPopup,
+      choosing: !launched,
+      launched,
+      chosen,
+      popupTitle: launched ? 'This battle goes to ' + chosen.name : 'Where will this battle be fought?',
+      statusText: launched ? 'Paused, resolving in ' + chosen.name : 'Paused, battle pending',
+      ruleText: oppName
+        ? 'If you differ, the attacker\'s pick stands. Opponent chose ' + oppName + '.'
+        : 'If you differ, the attacker\'s pick stands. Opponent has not chosen yet.',
+      agreeText: picked === opp ? 'Both commanders agreed.' : 'Attacker\'s pick stands.',
+      noPick: !picked,
+      confirmBg: picked ? '#d9bc62' : '#4b5044',
+      confirmFg: picked ? '#1b1e18' : '#c9c9ba',
+      options: ENGINES.map((e) => ({
+        ...e,
+        isPicked: picked === e.id,
+        isOpp: opp === e.id,
+        bg: picked === e.id ? '#3a3f30' : '#2a2e27',
+        border: picked === e.id ? '#d9bc62' : '#4b5044',
+        pick: () => this.setState({ picked: e.id }),
+      })),
+      steps: chosen.steps.map((text, i) => ({
+        text,
+        done: i < step,
+        color: i <= step ? '#e8e5d8' : '#9a9c8e',
+      })),
+      openPopup: () => this.setState({ showPopup: true }),
+      closePopup: () => this.setState({ showPopup: false }),
+      confirm: this.confirm,
+      reset: this.reset,
+    };
+  }
+}
+</script>
+</body>
+</html>
