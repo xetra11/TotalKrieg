@@ -69,11 +69,30 @@ Die Spielwerte unten sind Startwerte für den Balancetest. Die Sowjetunion zahlt
 
 | Einheit | Kosten Wehrmacht | Stärke Wehrmacht | Kosten Sowjetunion | Stärke Sowjetunion | Bewegung pro Runde |
 | --- | --- | --- | --- | --- | --- |
-| Kompanie | 1 Manpower | 4 | 1 Manpower | 3 | 3 Felder |
+| Kompanie | 1 Manpower | 3 | 1 Manpower | 2 | 3 Felder |
 | Bataillon | 3 Manpower | 12 | 2 Manpower | 9 | 2 Felder |
-| Division | 12 Manpower | 48 | 9 Manpower | 36 | 1 Feld |
+| Division | 27 Manpower | 108 | 18 Manpower | 81 | 1 Feld |
 
 Einheiten tragen Namen aus einer Liste realer Verbände. Diese Liste muss vor dem Bau gegen Quellen geprüft werden.
+
+## Gliederung
+
+Jede Einheit besitzt eine feste Gliederung, und ihre Stärke ist die Summe ihrer Kompanien. Ein Teilverband kann eigenständig ziehen, bleibt aber immer Teil seines Stammverbands. So lassen sich Zangenbewegungen führen.
+
+| Ebene | Wehrmacht | Sowjetunion |
+| --- | --- | --- |
+| Division | 3 Regimenter, 36 Kompanien | 3 Regimenter, 45 Kompanien |
+| Regiment | 3 Bataillone, nur in der Gliederung | 3 Bataillone, nur in der Gliederung |
+| Bataillon | 3 Schützenkompanien zu je 3, 1 MG-Kompanie zu 3 | 3 Schützenkompanien zu je 2, 1 MG-Kompanie zu 2, 1 Granatwerfer-Kompanie zu 1 |
+
+- **Kompanien:** Jede Kompanie hat einen Rufnamen und einen Führer, Offizier oder Unteroffizier. Beides ist frei erfunden.
+- **Ausgliedern:** In der Bewegungsphase verlässt eine Kompanie oder ein Bataillon den Verband auf ein freies Nachbarfeld. Das geht nur, bevor der Verband zieht, und mindestens eine Kompanie bleibt zurück. Der neue Teilverband darf noch in derselben Runde ziehen.
+- **Zugehörigkeit:** Ausgegliederte Teile bleiben in der Gliederung stehen. Eine gestrichelte Linie auf der Karte verbindet alle Teile eines Verbands.
+- **Eingliedern:** Steht ein Teilverband neben seinem Stammverband, kehrt er in der Bewegungsphase zurück. Verluste bleiben bestehen.
+- **Verluste:** Sie treffen nur den angegriffenen Verband und verteilen sich gleichmäßig auf seine anwesenden Kompanien. Eine Kompanie auf 0 gilt als aufgerieben und bleibt in der Gliederung sichtbar.
+- **Vernichtung:** Fällt der Stammverband, kämpfen ausgegliederte Teile weiter. Sie können sich der nächsthöheren Ebene anschließen, die noch auf der Karte steht.
+
+Die KI gliedert im MVP nicht aus.
 
 ## Einheitensymbole
 
@@ -101,7 +120,7 @@ Das Einkommen hängt allein am Besitz: Jede Fabrik bringt 1 Ressource, jede Stad
 
 ## Aufstellung
 
-Einheiten entstehen nur in eigenen Städten und der Hauptstadt, solange die Manpower reicht. Bei 3 Manpower pro Runde kostet eine Wehrmacht-Division 4 Runden, eine sowjetische 3 Runden Einkommen.
+Einheiten entstehen nur in eigenen Städten und der Hauptstadt, solange die Manpower reicht. Bei 3 Manpower pro Runde kostet eine Wehrmacht-Division 9 Runden, eine sowjetische 6 Runden Einkommen.
 
 - Jede Stadt stellt pro Runde höchstens eine Einheit auf.
 - Die Einheit erscheint auf dem Stadtfeld. Ist es besetzt, ist dort keine Aufstellung möglich.
@@ -159,7 +178,7 @@ Diese Punkte waren nicht vorgegeben und sind im Dokument als Annahmen gesetzt. J
 - [ ] Zählt die Hauptstadt als Stadt, also 3 statt 2 Manpower pro Runde?
 - [ ] Welche Funktion haben Dörfer? Im MVP derzeit keine
 - [ ] Stichtag Sommer 1943 für alle Gliederungen bestätigen
-- [ ] Kampfregeln, Bewegung, Kosten und Stärken im Balancetest prüfen. KI gegen KI, 400 Partien: Wehrmacht 242, Sowjetunion 142, Unentschieden 16
+- [ ] Kampfregeln, Bewegung, Kosten und Stärken im Balancetest prüfen. KI gegen KI, 400 Partien: Wehrmacht 262, Sowjetunion 128, Unentschieden 10
 - [ ] Startkräfte: je 1 Bataillon in jeder Stadt und in der Hauptstadt
 - [ ] Sieg: Hauptstadt erobern oder Städtevergleich nach 40 Runden
 - [ ] Kartengröße 24 × 16 und eine Einheit pro Feld

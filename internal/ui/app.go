@@ -40,6 +40,9 @@ type App struct {
 	message string
 	aiWait  int
 
+	showOrg       bool
+	pendingDetach *game.Element
+
 	sets      [2]*symbols.Set
 	regular   *text.GoTextFaceSource
 	bold      *text.GoTextFaceSource
@@ -89,6 +92,7 @@ func (a *App) start(f game.Faction) {
 
 func (a *App) clearSelection() {
 	a.selUnit, a.selCity, a.reach = nil, nil, nil
+	a.showOrg, a.pendingDetach = false, nil
 }
 
 func (a *App) humanTurn() bool {
@@ -109,10 +113,33 @@ func (a *App) Update() error {
 		a.next()
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-		a.clearSelection()
+		a.cancel()
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyG) {
+		a.toggleOrg()
 	}
 	a.tick()
 	return nil
+}
+
+// cancel steps back one level: window, pending detachment, then selection.
+func (a *App) cancel() {
+	switch {
+	case a.showOrg:
+		a.showOrg = false
+	case a.pendingDetach != nil:
+		a.pendingDetach = nil
+	default:
+		a.clearSelection()
+	}
+}
+
+func (a *App) toggleOrg() {
+	if a.showOrg {
+		a.showOrg = false
+		return
+	}
+	a.openOrg()
 }
 
 // tick lets the AI play once the delay ran out.
@@ -159,8 +186,16 @@ func (a *App) click(x, y float64) {
 	case a.st.Over && newGameButton().contains(x, y):
 		a.st = nil
 		a.clearSelection()
+	case a.showOrg:
+		a.clickOrg(x, y)
 	case nextButton().contains(x, y):
 		a.next()
+	case a.selUnit != nil && orgButton().contains(x, y):
+		a.openOrg()
+	case a.selUnit != nil && reattachButton().contains(x, y):
+		if a.humanTurn() && a.selUnit.Element.Detached() {
+			a.reattachSelected()
+		}
 	case a.selCity != nil && a.clickRecruit(x, y):
 	default:
 		if c, ok := hexAt(x, y); ok {
@@ -199,6 +234,10 @@ func (a *App) clickRecruit(x, y float64) bool {
 
 func (a *App) clickHex(c game.Coord) {
 	st := a.st
+	if a.pendingDetach != nil {
+		a.placeDetachment(c)
+		return
+	}
 	own := a.selUnit != nil && a.selUnit.Faction == st.First
 	if a.humanTurn() {
 		switch st.Phase {
@@ -214,14 +253,9 @@ func (a *App) clickHex(c game.Coord) {
 			}
 		}
 	}
-	a.selUnit = st.UnitAt(c)
-	a.selCity = nil
-	a.reach = nil
+	a.selectUnit(st.UnitAt(c))
 	if o := st.ObjectAt(c); o != nil && o.Kind.IsCity() {
 		a.selCity = o
-	}
-	if a.humanTurn() && st.Phase == game.PhaseBewegung && a.selUnit != nil && a.selUnit.Faction == st.First {
-		a.reach = st.Reachable(a.selUnit)
 	}
 }
 

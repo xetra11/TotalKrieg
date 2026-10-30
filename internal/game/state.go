@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand/v2"
+	"strings"
 )
 
 const (
@@ -34,9 +35,11 @@ type State struct {
 	Winner Faction // NoFaction on a draw
 	Reason string
 
-	rng    *rand.Rand
-	nextID int
-	counts [2][3]int
+	rng           *rand.Rand
+	nextID        int
+	counts        [2][3]int
+	callsignsUsed [2]int
+	surnamePool   [2][]string
 }
 
 // New starts a match. The first faction opens every round.
@@ -52,20 +55,40 @@ func New(seed uint64, first Faction) *State {
 	s.Objects = generateObjects(s.rng)
 	for _, o := range s.Objects {
 		if o.Kind.IsCity() {
-			s.addUnit(o.Owner, Bataillon, o.Pos)
+			s.Place(o.Owner, Bataillon, o.Pos)
 		}
 	}
 	s.beginTurn()
 	return s
 }
 
-func (s *State) addUnit(f Faction, k UnitKind, pos Coord) *Unit {
-	u := &Unit{ID: s.nextID, Faction: f, Kind: k, Pos: pos, Strength: Stats(f, k).Strength}
+// Place puts a new, full-strength formation on the map.
+func (s *State) Place(f Faction, k UnitKind, pos Coord) *Unit {
+	return s.placeElement(s.buildFormation(f, k), pos)
+}
+
+// placeElement gives an element its own unit on the map.
+func (s *State) placeElement(e *Element, pos Coord) *Unit {
+	u := &Unit{ID: s.nextID, Faction: e.Faction, Kind: e.Kind, Pos: pos, Element: e, Name: e.Name, Short: e.Short}
+	if e.Faction == Sowjetunion {
+		u.Flag = sovietFlag(e)
+	}
+	e.Token = u
 	s.nextID++
-	nameUnit(u, s.counts[f][k])
-	s.counts[f][k]++
 	s.Units = append(s.Units, u)
 	return u
+}
+
+// sovietFlag is the text inside the flag: the designation on a division flag,
+// the battalion number on a pennant.
+func sovietFlag(e *Element) string {
+	switch e.Kind {
+	case Division:
+		return e.Short
+	case Bataillon:
+		return strings.SplitN(e.Short, "/", 2)[0]
+	}
+	return ""
 }
 
 // UnitAt returns the unit on a hex, or nil.
@@ -143,7 +166,7 @@ func (s *State) Recruit(o *Object, k UnitKind) (*Unit, error) {
 	}
 	s.Stocks[s.Active].Manpower -= Stats(s.Active, k).Cost
 	o.Recruited = true
-	u := s.addUnit(s.Active, k, o.Pos)
+	u := s.Place(s.Active, k, o.Pos)
 	u.Fresh = true
 	return u, nil
 }
@@ -241,10 +264,10 @@ func (s *State) Attack(u *Unit, target Coord) (Report, error) {
 	if o := s.ObjectAt(target); o != nil && o.Kind.IsCity() {
 		defenderPercent = defenderPercent * cityDefenseBonusPercent / 100
 	}
-	attackerLoss := ceilPercent(d.Strength, defenderPercent)
-	defenderLoss := ceilPercent(u.Strength, s.rollPercent())
-	u.Strength -= attackerLoss
-	d.Strength -= defenderLoss
+	attackerLoss := ceilPercent(d.Strength(), defenderPercent)
+	defenderLoss := ceilPercent(u.Strength(), s.rollPercent())
+	u.takeLoss(attackerLoss)
+	d.takeLoss(defenderLoss)
 
 	r := Report{
 		Round:           s.Round,
@@ -255,11 +278,11 @@ func (s *State) Attack(u *Unit, target Coord) (Report, error) {
 		DefenderLoss:    defenderLoss,
 		Pos:             target,
 	}
-	if d.Strength <= 0 {
+	if d.Strength() <= 0 {
 		r.DefenderDestroyed = true
 		s.remove(d)
 	}
-	if u.Strength <= 0 {
+	if u.Strength() <= 0 {
 		r.AttackerDestroyed = true
 		s.remove(u)
 	} else if r.DefenderDestroyed {
@@ -280,7 +303,9 @@ func ceilPercent(strength, percent int) int {
 	return (strength*percent + 99) / 100
 }
 
+// remove takes a unit off the map. Its element stays in the order of battle.
 func (s *State) remove(u *Unit) {
+	u.Element.Token = nil
 	for i, x := range s.Units {
 		if x == u {
 			s.Units = append(s.Units[:i], s.Units[i+1:]...)

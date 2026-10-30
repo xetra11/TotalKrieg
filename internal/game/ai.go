@@ -161,10 +161,10 @@ func (s *State) bestAttackTarget(u *Unit) *Unit {
 		if e == nil || e.Faction == u.Faction {
 			continue
 		}
-		if u.Strength*10 < e.Strength*attackRatioTenths {
+		if u.Strength()*10 < e.Strength()*attackRatioTenths {
 			continue
 		}
-		if best == nil || e.Strength < best.Strength {
+		if best == nil || e.Strength() < best.Strength() {
 			best = e
 		}
 	}
@@ -189,7 +189,7 @@ func (s *State) bestObjective(u *Unit) (Coord, bool) {
 
 func (s *State) aiAttack() {
 	for _, u := range append([]*Unit(nil), s.Units...) {
-		if u.Faction != s.Active || u.Strength <= 0 {
+		if u.Faction != s.Active || u.Strength() <= 0 {
 			continue
 		}
 		if t := s.bestAttackTarget(u); t != nil {

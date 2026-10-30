@@ -51,6 +51,9 @@ func (a *App) draw(screen *ebiten.Image) {
 	a.drawCityNames(screen)
 	a.drawHint(screen)
 	a.drawSidebar(screen)
+	if a.showOrg {
+		a.drawOrg(screen)
+	}
 	if a.st.Over {
 		a.drawEnd(screen)
 	}
@@ -255,8 +258,20 @@ func starPoints(cx, cy, outer, inner float64) [][2]float32 {
 	return pts
 }
 
+func dashedLine(dst *ebiten.Image, x0, y0, x1, y1 float64, clr color.Color) {
+	const dash, gap = 10.0, 7.0
+	length := math.Hypot(x1-x0, y1-y0)
+	dx, dy := (x1-x0)/length, (y1-y0)/length
+	for d := 0.0; d < length; d += dash + gap {
+		end := math.Min(d+dash, length)
+		vector.StrokeLine(dst, float32(x0+dx*d), float32(y0+dy*d), float32(x0+dx*end), float32(y0+dy*end), 2, clr, true)
+	}
+}
+
 func (a *App) drawHighlights(dst *ebiten.Image) {
 	st := a.st
+	a.drawFormationLinks(dst)
+	a.drawDetachSpots(dst)
 	for c := range a.reach {
 		cx, cy := hexCenter(c)
 		fillPoly(dst, hexCorners(cx, cy, hexSize-1), color.RGBA{0x6b, 0x5c, 0x22, 0x50})
@@ -295,7 +310,7 @@ func (a *App) drawUnits(dst *ebiten.Image) {
 		}
 		dst.DrawImage(img, op)
 		a.label(dst, u.Short, cx, cy+8, 10, factionColor(u.Faction), true, text.AlignCenter)
-		a.label(dst, fmt.Sprint(u.Strength), cx+20, cy-24, 11, colInk, true, text.AlignEnd)
+		a.label(dst, fmt.Sprint(u.Strength()), cx+20, cy-24, 11, colInk, true, text.AlignEnd)
 	}
 }
 
@@ -364,12 +379,28 @@ func (a *App) drawUnitPanel(dst *ebiten.Image) {
 	a.drawFlagLabel(dst, u, x+8, y+6, 1.6)
 	tx := x + 110
 	a.label(dst, u.Kind.String(), tx, y, 13, colMuted, false, text.AlignStart)
-	a.wrapped(dst, u.Short, tx, y+18, 220, 18, colText)
-	a.label(dst, fmt.Sprintf("Stärke %d / %d", u.Strength, st.Strength), tx, y+50, 16, colText, true, text.AlignStart)
-	a.label(dst, fmt.Sprintf("Bewegung %d Felder", st.Move), tx, y+74, 15, colText, false, text.AlignStart)
-	a.wrapped(dst, u.Name, x, y+124, sideW-32, 14, colText)
-	a.label(dst, "Historische Sollstärke: "+st.Men+" Mann", x, y+152, 14, colMuted, false, text.AlignStart)
-	a.wrapped(dst, st.Note, x, y+174, sideW-32, 14, colMuted)
+	a.wrapped(dst, u.Short, tx, y+16, 220, 18, colText)
+	a.label(dst, fmt.Sprintf("Stärke %d / %d", u.Strength(), u.FullStrength()), tx, y+42, 16, colText, true, text.AlignStart)
+	a.label(dst, "Bewegung "+fieldCount(st.Move), tx, y+66, 15, colText, false, text.AlignStart)
+	if e := u.Element; e.Kind == game.Kompanie {
+		a.label(dst, e.Callsign, tx, y+90, 15, colAmber, true, text.AlignStart)
+		a.label(dst, e.Leader, tx+90, y+90, 14, colText, false, text.AlignStart)
+	}
+	a.label(dst, u.Name, x, y+122, 14, colText, false, text.AlignStart)
+	a.label(dst, "Historische Sollstärke: "+st.Men+" Mann", x, y+142, 14, colMuted, false, text.AlignStart)
+	a.label(dst, "Gehört zu: "+membership(u.Element), x, y+162, 14, colMuted, false, text.AlignStart)
+	a.drawButton(dst, orgButton(), "Gliederung (G)", true)
+	if u.Element.Detached() {
+		_, err := a.st.CanReattach(u)
+		a.drawButton(dst, reattachButton(), "Eingliedern", a.humanTurn() && err == nil)
+	}
+}
+
+func fieldCount(n int) string {
+	if n == 1 {
+		return "1 Feld"
+	}
+	return fmt.Sprintf("%d Felder", n)
 }
 
 // drawFlagLabel writes the designation into a Soviet flag, as the manual shows.
@@ -403,7 +434,7 @@ func (a *App) drawCityPanel(dst *ebiten.Image) {
 		fillRect(dst, r, bg)
 		strokeRect(dst, r, 1, colLine)
 		a.label(dst, k.String(), r.x+12, r.y+6, 16, fg, true, text.AlignStart)
-		a.label(dst, fmt.Sprintf("Stärke %d, %d Felder", stats.Strength, stats.Move), r.x+12, r.y+26, 13, fg, false, text.AlignStart)
+		a.label(dst, fmt.Sprintf("Stärke %d, %s", stats.Strength, fieldCount(stats.Move)), r.x+12, r.y+26, 13, fg, false, text.AlignStart)
 		a.label(dst, fmt.Sprintf("%d Manpower", stats.Cost), r.x+r.w-12, r.y+14, 15, fg, true, text.AlignEnd)
 	}
 }
