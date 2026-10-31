@@ -36,6 +36,7 @@ type State struct {
 	Winner Faction // NoFaction on a draw
 	Reason string
 
+	orders        []*Order
 	routs         []*Rout
 	rng           *rand.Rand
 	nextID        int
@@ -136,7 +137,8 @@ func (s *State) beginTurn() {
 	f := s.Active
 	for _, u := range s.Units {
 		if u.Faction == f {
-			u.Used, u.Spent = 0, false
+			u.Used, u.Spent = 0, u.Beaten
+			u.Resting, u.Beaten = u.Beaten, false
 		}
 	}
 	for _, o := range s.Objects {
@@ -333,7 +335,7 @@ func (s *State) settle(u *Unit, attackers, defenders []*Unit, target Coord, o Ou
 	r.DefenderDestroyed = d.Strength() <= 0
 	r.AttackerDestroyed = u.Strength() <= 0
 	s.addReport(r)
-	s.afterFight(u, d, target, o)
+	s.afterFight(u, attackers, defenders, target, o)
 	return r
 }
 
@@ -378,8 +380,13 @@ func (s *State) EndTurn() {
 		return
 	}
 	f := s.Active
+	s.orders = nil
 	for _, u := range s.Units {
-		if u.Faction != f || u.Kind != Company {
+		if u.Faction != f {
+			continue
+		}
+		u.Resting = false
+		if u.Kind != Company {
 			continue
 		}
 		o := s.ObjectAt(u.Pos)

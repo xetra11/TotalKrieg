@@ -13,8 +13,8 @@ type Rout struct {
 	Victor *Unit // takes the vacated hex, nil after a lost attack
 }
 
-// startRout lets a beaten unit flee. A human unit beaten during the AI's turn
-// keeps its hex until the turn is over.
+// startRout lets a beaten unit flee. A human unit keeps its hex until the player
+// has picked one.
 func (s *State) startRout(u *Unit, from Coord, victor *Unit) {
 	r := &Rout{Unit: u, From: from, Victor: victor}
 	if u.Faction == s.First {
@@ -77,8 +77,16 @@ func (s *State) fleeAll() {
 }
 
 // afterFight moves the units once the losses are booked. The lead company takes
-// an emptied hex, and the beaten side's lead unit flees.
-func (s *State) afterFight(u, d *Unit, target Coord, o Outcome) {
+// an emptied hex, the beaten side's lead unit flees, and all of that side sits
+// out its next turn.
+func (s *State) afterFight(u *Unit, attackers, defenders []*Unit, target Coord, o Outcome) {
+	d := defenders[0]
+	switch o {
+	case AttackerWins:
+		markBeaten(defenders)
+	case DefenderWins:
+		markBeaten(attackers)
+	}
 	switch {
 	case u.Strength() <= 0:
 	case d.Strength() <= 0:
@@ -87,6 +95,12 @@ func (s *State) afterFight(u, d *Unit, target Coord, o Outcome) {
 		s.startRout(d, u.Pos, u)
 	case o == DefenderWins:
 		s.startRout(u, target, nil)
+	}
+}
+
+func markBeaten(units []*Unit) {
+	for _, u := range units {
+		u.Beaten = true
 	}
 }
 

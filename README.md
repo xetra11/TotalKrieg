@@ -46,7 +46,7 @@ Options:
 
 ## Battles in Mius-Front
 
-Battles in Mius-Front need MiusMissionMaker, Node.js and the installed game. The game must be closed before the start. The battle dialog first shows the battle line-up, and you start Mius-Front from there. When the battle ends, TotalKrieg reads the outcome and losses by itself, shows them per platoon and books them with "Apply result". If that fails, you enter the outcome by hand. Generated scenarios and missions land in the `missions/` folder, for an installed game in `%LOCALAPPDATA%\TotalKrieg\missions`.
+Your attacks and the AI's attacks can both be fought in Mius-Front. Battles there need MiusMissionMaker, Node.js and the installed game. The game must be closed before the start. The battle dialog first shows the battle line-up, and you start Mius-Front from there. When the battle ends, TotalKrieg reads the outcome and losses by itself, shows them per platoon and books them with "Apply result". If that fails, you enter the outcome by hand. Generated scenarios and missions land in the `missions/` folder, for an installed game in `%LOCALAPPDATA%\TotalKrieg\missions`.
 
 TotalKrieg needs the Mius-Front folder to start a battle and to read its result. It expects the default Steam path `C:/Program Files (x86)/Steam/steamapps/common/Graviteam Tactics Mius-Front`. If the game is somewhere else, for example in another Steam library, pass the folder that contains `starter_x64.exe` with `-miusgame`. For an installed game, add it to the end of **Target** in the shortcut's properties, after the closing quote:
 
@@ -59,12 +59,14 @@ TotalKrieg needs the Mius-Front folder to start a battle and to read its result.
 During your turn you act in any order. Income comes at the start of a turn, captures count at the end of a turn.
 
 - **Raise:** Click one of your cities, then choose a unit on the right.
-- **Move:** Click one of your units, then a marked hex. Leftover movement stays for further steps.
-- **Attack:** Click one of your companies, then an enemy outlined in red. A dialog asks how to resolve the battle.
+- **Move:** Click one of your units, then a marked hex. That plans an order, shown as an arrow. Click another hex to change it, or click the unit to drop it.
+- **Attack:** Click one of your companies, then an enemy outlined in red. That plans an attack.
+- **Commit:** **End turn** carries out all orders. Each attack opens a dialog that asks how to resolve the battle. AI attacks open the same dialog.
 - **Flee:** When your unit is beaten, click one of the marked hexes for it to flee to.
+- **Beaten units:** All units of the beaten side sit out their next turn. An orange frame marks them. They can still be attacked.
 - **Order of battle:** Click a unit, then **G** or the button on the right. The window shows the battalion with callsigns, company leaders, positions and the counterpart in Mius-Front.
 - **Staffs:** Companies move 3 hexes only within reach of their staff, otherwise 1 hex. A red dot marks a missing link. Staffs don't attack or capture.
-- **Enter** ends the turn or confirms the automatic resolution, **Esc** cancels or clears the selection.
+- **Enter** commits the orders or confirms the automatic resolution, **Esc** cancels or clears the selection.
 
 ## Structure
 

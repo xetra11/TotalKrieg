@@ -1,6 +1,9 @@
 package game
 
-import "sort"
+import (
+	"iter"
+	"sort"
+)
 
 const (
 	threatRange = 2
@@ -16,21 +19,34 @@ var objectWeight = map[ObjectKind]float64{
 	Village: 1,
 }
 
-// PlayTurn plays the active faction's whole turn with the AI priorities from
-// the GDD: defend, attack, capture, raise units.
+// PlayTurn plays the active faction's whole turn and resolves every fight
+// automatically.
 func (s *State) PlayTurn() {
-	if s.Over {
-		return
+	for range s.AITurn() {
 	}
-	s.fleeAll()
-	s.aiRecruit()
-	s.aiMoveStaffs()
-	s.aiDefend()
-	s.aiAttack()
-	s.aiAdvance()
-	s.aiAttack()
-	s.aiMoveStaffs()
-	s.EndTurn()
+}
+
+// AITurn plays the active faction's turn with the AI priorities from the GDD:
+// defend, attack, capture, raise units. It stops at every fight.
+func (s *State) AITurn() iter.Seq[*Fight] {
+	return func(yield func(*Fight) bool) {
+		if s.Over {
+			return
+		}
+		s.fleeAll()
+		s.aiRecruit()
+		s.aiMoveStaffs()
+		s.aiDefend()
+		if !s.aiAttack(yield) {
+			return
+		}
+		s.aiAdvance()
+		if !s.aiAttack(yield) {
+			return
+		}
+		s.aiMoveStaffs()
+		s.EndTurn()
+	}
 }
 
 // aiMoveStaffs keeps every staff in the middle of its companies.
@@ -212,13 +228,14 @@ func (s *State) bestObjective(u *Unit) (Coord, bool) {
 	return best, bestScore > 0
 }
 
-func (s *State) aiAttack() {
+func (s *State) aiAttack(yield func(*Fight) bool) bool {
 	for _, u := range append([]*Unit(nil), s.Units...) {
 		if u.Faction != s.Active || u.Strength() <= 0 {
 			continue
 		}
-		if t := s.bestAttackTarget(u); t != nil {
-			s.Attack(u, t.Pos)
+		if t := s.bestAttackTarget(u); t != nil && !s.fight(u, t.Pos, yield) {
+			return false
 		}
 	}
+	return true
 }

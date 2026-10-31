@@ -29,6 +29,8 @@ var (
 	colBlue     = color.RGBA{0x1c, 0x4f, 0xa0, 0xff}
 	colRed      = color.RGBA{0xc8, 0x28, 0x1c, 0xff}
 	colDisabled = color.RGBA{0x9a, 0x9c, 0x8e, 0xff}
+	colOrder    = color.RGBA{0xa8, 0x6d, 0x00, 0xff}
+	colBeaten   = color.RGBA{0xe0, 0x6c, 0x00, 0xff}
 )
 
 func factionColor(f game.Faction) color.RGBA {
@@ -48,6 +50,7 @@ func (a *App) draw(screen *ebiten.Image) {
 	a.drawMap(screen)
 	a.drawHighlights(screen)
 	a.drawUnits(screen)
+	a.drawOrders(screen)
 	a.drawCityNames(screen)
 	a.drawHint(screen)
 	a.drawSidebar(screen)
@@ -151,9 +154,13 @@ func (a *App) drawTopBar(dst *ebiten.Image) {
 	a.label(dst, fmt.Sprintf("%d cities, %d objects", cities, objects), 1130, 30, 15, colText, true, text.AlignStart)
 
 	b := nextButton()
-	if a.humanTurn() {
+	if a.humanTurn() && a.script == nil {
+		name := "End turn"
+		if n := len(st.Orders()); n > 0 {
+			name = fmt.Sprintf("Commit %d orders", n)
+		}
 		fillRect(dst, b, colAmber)
-		a.label(dst, "End turn", b.x+b.w/2, b.y+11, 15, colDeep, true, text.AlignCenter)
+		a.label(dst, name, b.x+b.w/2, b.y+11, 15, colDeep, true, text.AlignCenter)
 	} else {
 		fillRect(dst, b, colLine)
 		a.label(dst, "Please wait", b.x+b.w/2, b.y+11, 15, colMuted, true, text.AlignCenter)
@@ -285,7 +292,7 @@ func (a *App) drawUnits(dst *ebiten.Image) {
 	st := a.st
 	for _, u := range st.Units {
 		cx, cy := hexCenter(u.Pos)
-		spent := u.Faction == st.First && a.humanTurn() && u.MovesLeft() == 0
+		spent := u.OutOfAction() || u.Faction == st.First && a.humanTurn() && u.MovesLeft() == 0
 		plate := color.RGBA{0xef, 0xeb, 0xdb, 0xe6}
 		fillRect(dst, rect{cx - 22, cy - 25, 44, 46}, plate)
 		img := a.symbol(u.Faction, u.Kind, 0.56)
@@ -301,14 +308,47 @@ func (a *App) drawUnits(dst *ebiten.Image) {
 		if u.Kind == game.Company && !u.Linked() {
 			vector.FillCircle(dst, float32(cx+15), float32(cy-5), 5, colRed, true)
 		}
+		if u.OutOfAction() {
+			strokeRect(dst, rect{cx - 22, cy - 25, 44, 46}, 3, colBeaten)
+			vector.StrokeLine(dst, float32(cx-22), float32(cy+21), float32(cx+22), float32(cy-25), 3, colBeaten, true)
+		}
 	}
+}
+
+// drawOrders shows the planned orders as arrows, so the plan reads at a glance.
+func (a *App) drawOrders(dst *ebiten.Image) {
+	for _, o := range a.st.Orders() {
+		clr := colOrder
+		if o.Attack {
+			clr = colRed
+		}
+		x0, y0 := hexCenter(o.Unit.Pos)
+		x1, y1 := hexCenter(o.To)
+		drawArrow(dst, x0, y0, x1, y1, clr)
+		if !o.Attack {
+			strokePoly(dst, hexCorners(x1, y1, hexSize-3), true, 2, clr)
+		}
+	}
+}
+
+func drawArrow(dst *ebiten.Image, x0, y0, x1, y1 float64, clr color.Color) {
+	const head, halfWidth = 13.0, 7.0
+	length := math.Hypot(x1-x0, y1-y0)
+	dx, dy := (x1-x0)/length, (y1-y0)/length
+	bx, by := x1-dx*head, y1-dy*head
+	vector.StrokeLine(dst, float32(x0), float32(y0), float32(bx), float32(by), 3, clr, true)
+	fillPoly(dst, [][2]float32{
+		{float32(x1), float32(y1)},
+		{float32(bx - dy*halfWidth), float32(by + dx*halfWidth)},
+		{float32(bx + dy*halfWidth), float32(by - dx*halfWidth)},
+	}, clr)
 }
 
 func (a *App) drawHint(dst *ebiten.Image) {
 	a.label(dst, a.message, 24, hintY, 18, colInk, true, text.AlignStart)
 	seed := fmt.Sprintf("Map %d", a.st.Seed)
 	a.label(dst, seed, 24, hintY+30, 13, colInk, false, text.AlignStart)
-	a.label(dst, "Enter: end turn   G: order of battle   Esc: cancel", 24, hintY+50, 13, colInk, false, text.AlignStart)
+	a.label(dst, "Click hexes to plan orders.   Enter: commit orders   G: order of battle   Esc: cancel", 24, hintY+50, 13, colInk, false, text.AlignStart)
 	a.drawKey(dst)
 }
 
@@ -329,6 +369,8 @@ func (a *App) drawKey(dst *ebiten.Image) {
 	a.label(dst, "Soviet Union", x+132, hintY+38, 13, colInk, false, text.AlignStart)
 	vector.FillCircle(dst, float32(x+268+5), float32(hintY+46), 5, colRed, true)
 	a.label(dst, "No staff link", x+284, hintY+38, 13, colInk, false, text.AlignStart)
+	strokeRect(dst, rect{x, hintY + 68, 18, 12}, 2, colBeaten)
+	a.label(dst, "Beaten, sits out a turn", x+24, hintY+66, 13, colInk, false, text.AlignStart)
 }
 
 func (a *App) drawSidebar(dst *ebiten.Image) {
@@ -363,7 +405,7 @@ func (a *App) drawUnitPanel(dst *ebiten.Image) {
 	a.label(dst, u.Kind.String(), tx, y, 13, colMuted, false, text.AlignStart)
 	a.wrapped(dst, u.Short, tx, y+16, 220, 18, colText)
 	a.label(dst, fmt.Sprintf("Strength %d / %d", u.Strength(), u.FullStrength()), tx, y+42, 16, colText, true, text.AlignStart)
-	a.label(dst, fmt.Sprintf("Movement %d of %s", u.MovesLeft(), fieldCount(u.Allowance())), tx, y+66, 15, colText, false, text.AlignStart)
+	a.label(dst, a.unitState(u), tx, y+66, 15, colText, false, text.AlignStart)
 	if e := u.Element; e.Kind == game.Company {
 		a.label(dst, e.Callsign, tx, y+90, 15, colAmber, true, text.AlignStart)
 		a.label(dst, e.Leader, tx+90, y+90, 14, colText, false, text.AlignStart)
@@ -372,6 +414,24 @@ func (a *App) drawUnitPanel(dst *ebiten.Image) {
 	a.label(dst, "Historical establishment: "+st.Men+" men", x, y+142, 14, colMuted, false, text.AlignStart)
 	a.label(dst, "Formation: "+membership(u), x, y+162, 14, colMuted, false, text.AlignStart)
 	a.drawButton(dst, orgButton(), "Order of battle (G)", true)
+}
+
+// unitState says what a unit does this turn.
+func (a *App) unitState(u *game.Unit) string {
+	if u.OutOfAction() {
+		return "Beaten, sits out a turn"
+	}
+	if o := a.st.OrderOf(u); o != nil {
+		return "Order: " + orderText(o)
+	}
+	return "Movement " + fieldCount(u.MovesLeft())
+}
+
+func orderText(o *game.Order) string {
+	if o.Attack {
+		return "attack on " + hexName(o.To)
+	}
+	return "move to " + hexName(o.To)
 }
 
 func fieldCount(n int) string {

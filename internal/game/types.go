@@ -121,6 +121,14 @@ type Unit struct {
 	Flag    string   // text inside the symbol, where the faction's signs carry one
 	Used    int      // fields moved this turn
 	Spent   bool     // fought this turn or just raised, no movement left
+	Beaten  bool     // lost a fight, sits out its next turn
+	Resting bool     // sitting out this turn
+}
+
+// OutOfAction reports whether the unit was beaten and has yet to sit out its
+// turn. It can still be attacked.
+func (u *Unit) OutOfAction() bool {
+	return u.Beaten || u.Resting
 }
 
 // Stats returns the values of the unit's type.

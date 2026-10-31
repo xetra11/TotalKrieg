@@ -31,11 +31,15 @@ type Scenario struct {
 	Points      map[string][2]int `json:"points"`
 	Sides       Sides             `json:"sides"`
 	Victory     Victory           `json:"victory"`
+	Defeat      *Defeat           `json:"defeat,omitempty"`
 	Texts       map[string]string `json:"texts"`
 
 	// Roster lists every platoon, player side first, in mission order. The
 	// battle result refers to platoons by that order.
 	Roster []RosterEntry `json:"-"`
+	// Defending is set when the player holds against an AI attack. The game
+	// reports its result from the player's side.
+	Defending bool `json:"-"`
 }
 
 // RosterEntry says what a Mius-Front platoon is in TotalKrieg.
@@ -52,8 +56,15 @@ type Sides struct {
 
 // Side is one force.
 type Side struct {
-	Deploy   Deploy    `json:"deploy"`
-	Platoons []Platoon `json:"platoons"`
+	Deploy   Deploy      `json:"deploy"`
+	Platoons []Platoon   `json:"platoons"`
+	Orders   []SideOrder `json:"orders,omitempty"`
+}
+
+// SideOrder sends all platoons of a side somewhere.
+type SideOrder struct {
+	To   string `json:"to"`
+	Mode string `json:"mode"`
 }
 
 // Deploy is the initial set-up of a side.
@@ -72,10 +83,15 @@ type Platoon struct {
 
 // Victory is the player's win condition.
 type Victory struct {
-	OwnReaches string  `json:"own_reaches"`
-	Radius     int     `json:"radius"`
-	Share      float64 `json:"share"`
+	OwnReaches string  `json:"own_reaches,omitempty"`
+	Radius     int     `json:"radius,omitempty"`
+	Share      float64 `json:"share,omitempty"`
 	Balance    float64 `json:"balance"`
+}
+
+// Defeat is the player's loss condition.
+type Defeat struct {
+	EnemyReaches string `json:"enemy_reaches"`
 }
 
 // unitSet names the Mius-Front platoons of one faction, from docs/UNITS.md of
@@ -113,16 +129,23 @@ var basePlans = [2]basePlan{
 	game.SovietUnion: {id: "tr02", player: [2]int{-268, 2190}, enemy: [2]int{1384, 1720}},
 }
 
-// Battle describes a fight the human player attacks in.
+// defensePlans are the shipped defensive missions, for fights the AI starts.
+var defensePlans = [2]basePlan{
+	game.Wehrmacht:   {id: "tr04", player: [2]int{-401, -716}, enemy: [2]int{224, -910}},
+	game.SovietUnion: {id: "sm01", player: [2]int{1328, 622}, enemy: [2]int{2163, 533}},
+}
+
+// Battle describes a fight of the human player, who attacks or defends.
 type Battle struct {
 	Round        int
 	Hex          game.Coord
 	Faction      game.Faction    // the human player's side
-	Player       []*game.Element // attacking companies
-	Enemy        []*game.Element // defending companies
+	Player       []*game.Element // the human player's companies
+	Enemy        []*game.Element // the AI's companies
 	PlayerStaffs []*game.Element // battalion staffs in command of them
 	EnemyStaffs  []*game.Element
 	Fortified    bool // the defender holds a city
+	Defending    bool // the AI attacks
 }
 
 // NewBattle collects a fight's forces from the rules. Staffs take part when
@@ -130,7 +153,11 @@ type Battle struct {
 func NewBattle(s *game.State, u *game.Unit, target game.Coord) Battle {
 	attackers, defenders := s.Engagement(u, target)
 	o := s.ObjectAt(target)
-	b := Battle{Round: s.Round, Hex: target, Faction: u.Faction, Fortified: o != nil && o.Kind.IsCity()}
+	b := Battle{Round: s.Round, Hex: target, Faction: s.First, Fortified: o != nil && o.Kind.IsCity()}
+	if u.Faction != s.First {
+		b.Defending = true
+		attackers, defenders = defenders, attackers
+	}
 	b.Player, b.PlayerStaffs = forces(attackers)
 	b.Enemy, b.EnemyStaffs = forces(defenders)
 	return b
@@ -164,39 +191,77 @@ func Build(b Battle) Scenario {
 	own, foe := unitSets[b.Faction], unitSets[b.Faction.Other()]
 	ownPlans, foePlans := companyPlans(own, b.Player, b.PlayerStaffs), companyPlans(foe, b.Enemy, b.EnemyStaffs)
 	ownTotal, foeTotal := planSize(ownPlans), planSize(foePlans)
-	base := basePlans[b.Faction]
-
-	enemyDeploy := Deploy{Type: "place", At: "enemy_pos", Formation: "line"}
-	if b.Fortified {
-		enemyDeploy = Deploy{Type: "trench", At: "enemy_pos"}
-	}
 	hex := b.Hex.Name()
 	ownPicked := pick(ownPlans, scaled(ownTotal, ownTotal, foeTotal))
 	foePicked := pick(foePlans, scaled(foeTotal, ownTotal, foeTotal))
-	return Scenario{
-		ID:          strings.ToLower(fmt.Sprintf("tk_r%02d_%s", b.Round, hex)),
-		Title:       fmt.Sprintf("TotalKrieg %s, round %d", hex, b.Round),
-		Description: fmt.Sprintf("%s attacks %s. Take the enemy position.", force(b.Faction, len(b.Player)), force(b.Faction.Other(), len(b.Enemy))),
-		Base:        base.id,
-		MaxMinutes:  maxMinutes,
-		Points:      map[string][2]int{"own_start": base.player, "enemy_pos": base.enemy},
+	s := Scenario{
+		ID:         strings.ToLower(fmt.Sprintf("tk_r%02d_%s", b.Round, hex)),
+		Title:      fmt.Sprintf("TotalKrieg %s, round %d", hex, b.Round),
+		MaxMinutes: maxMinutes,
 		Sides: Sides{
-			Player: Side{
-				Deploy:   Deploy{Type: "place", At: "own_start"},
-				Platoons: platoons(own.callsign, ownPicked, ""),
-			},
-			Enemy: Side{
-				Deploy:   enemyDeploy,
-				Platoons: platoons(foe.callsign, foePicked, "defend"),
-			},
+			Player: Side{Platoons: platoons(own.callsign, ownPicked, "")},
+			Enemy:  Side{Platoons: platoons(foe.callsign, foePicked, "")},
 		},
-		Roster:  append(own.roster(ownPicked), foe.roster(foePicked)...),
-		Victory: Victory{OwnReaches: "enemy_pos", Radius: 250, Share: 0.5, Balance: 2},
-		Texts: map[string]string{
-			"brief_own":   "Your attacking force: " + force(b.Faction, len(b.Player)),
-			"brief_foe":   "The enemy holds this position: " + force(b.Faction.Other(), len(b.Enemy)),
-			"info_attack": "Take the enemy position",
-		},
+		Roster:    append(own.roster(ownPicked), foe.roster(foePicked)...),
+		Defending: b.Defending,
+	}
+	if b.Defending {
+		s.setDefense(b)
+	} else {
+		s.setAttack(b)
+	}
+	return s
+}
+
+// setAttack lets the player take a position the enemy holds.
+func (s *Scenario) setAttack(b Battle) {
+	base := basePlans[b.Faction]
+	ownForce, foeForce := force(b.Faction, len(b.Player)), force(b.Faction.Other(), len(b.Enemy))
+	s.Base = base.id
+	s.Description = fmt.Sprintf("%s attacks %s. Take the enemy position.", ownForce, foeForce)
+	s.Points = map[string][2]int{"own_start": base.player, "enemy_pos": base.enemy}
+	s.Sides.Player.Deploy = Deploy{Type: "place", At: "own_start"}
+	s.Sides.Enemy.Deploy = holdingDeploy("enemy_pos", b.Fortified)
+	setPlan(s.Sides.Enemy.Platoons, "defend")
+	s.Victory = Victory{OwnReaches: "enemy_pos", Radius: 250, Share: 0.5, Balance: 2}
+	s.Texts = map[string]string{
+		"brief_own":   "Your attacking force: " + ownForce,
+		"brief_foe":   "The enemy holds this position: " + foeForce,
+		"info_attack": "Take the enemy position",
+	}
+}
+
+// setDefense lets the player hold a position the enemy attacks.
+func (s *Scenario) setDefense(b Battle) {
+	base := defensePlans[b.Faction]
+	ownForce, foeForce := force(b.Faction, len(b.Player)), force(b.Faction.Other(), len(b.Enemy))
+	s.Base = base.id
+	s.Description = fmt.Sprintf("%s attacks %s. Hold the position.", foeForce, ownForce)
+	s.Points = map[string][2]int{"own_pos": base.player, "enemy_start": base.enemy}
+	s.Sides.Player.Deploy = holdingDeploy("own_pos", b.Fortified)
+	s.Sides.Enemy.Deploy = Deploy{Type: "place", At: "enemy_start"}
+	s.Sides.Enemy.Orders = []SideOrder{{To: "own_pos", Mode: "attack"}}
+	setPlan(s.Sides.Enemy.Platoons, "attack")
+	s.Victory = Victory{Balance: 2}
+	s.Defeat = &Defeat{EnemyReaches: "own_pos"}
+	s.Texts = map[string]string{
+		"brief_own":   "Your defending force: " + ownForce,
+		"brief_foe":   "The enemy attacks with: " + foeForce,
+		"info_attack": "Hold this position",
+	}
+}
+
+// holdingDeploy digs a defender in when it holds a city.
+func holdingDeploy(at string, fortified bool) Deploy {
+	if fortified {
+		return Deploy{Type: "trench", At: at}
+	}
+	return Deploy{Type: "place", At: at, Formation: "line"}
+}
+
+func setPlan(platoons []Platoon, plan string) {
+	for i := range platoons {
+		platoons[i].Plan = plan
 	}
 }
 

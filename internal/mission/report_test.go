@@ -168,3 +168,25 @@ func TestPlatoonLossesOfARealBattle(t *testing.T) {
 		t.Errorf("pine_05 %+v", p)
 	}
 }
+
+func TestDefendingFlipsTheOutcome(t *testing.T) {
+	data, log := j10(t)
+	dir := t.TempDir()
+	for name, content := range map[string][]byte{resultFile: data, engineLog: []byte(log)} {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := Scenario{Roster: roster(15), Defending: true}
+	res, err := ReadResult(Config{GameDir: dir}, s, time.Now().Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outcome != game.DefenderWins {
+		t.Errorf("player's victory as %v", res.Outcome)
+	}
+}

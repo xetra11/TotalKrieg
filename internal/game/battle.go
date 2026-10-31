@@ -101,7 +101,7 @@ func (s *State) ApplyFieldResult(u *Unit, target Coord, res *FieldResult) (Repor
 	r.AttackerDestroyed = u.Strength() <= 0
 	r.DefenderDestroyed = d.Strength() <= 0
 	s.addReport(r)
-	s.afterFight(u, d, target, res.Outcome)
+	s.afterFight(u, attackers, defenders, target, res.Outcome)
 	return r, nil
 }
 

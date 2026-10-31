@@ -86,7 +86,7 @@ func (a *App) selectUnit(u *game.Unit) {
 	a.selCity = nil
 	a.reach = nil
 	if a.humanTurn() && u != nil && u.Faction == a.st.First {
-		a.reach = a.st.Reachable(u)
+		a.reach = a.st.OrderTargets(u)
 	}
 }
 
@@ -138,6 +138,9 @@ func (a *App) drawOrgRow(dst *ebiten.Image, row orgRow) {
 }
 
 func orgStatus(e *game.Element) string {
+	if e.Token != nil && e.Token.OutOfAction() {
+		return "on " + hexName(e.Token.Pos) + ", beaten"
+	}
 	switch {
 	case e.Token == nil && e.Kind == game.Company:
 		return "wiped out"

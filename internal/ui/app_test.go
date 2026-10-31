@@ -81,27 +81,41 @@ func TestPlayerTurnByClicks(t *testing.T) {
 		}
 	}
 
-	// Move the staff out, then raise a company in the same turn.
+	// An order changes nothing until the turn is committed.
 	staff := st.UnitAt(city.Pos)
 	clickHexAt(a, city.Pos)
 	if a.selUnit != staff || len(a.reach) == 0 {
 		t.Fatal("staff not selected for a move")
 	}
 	var to game.Coord
-	moved := 0
-	for c, d := range a.reach {
-		to, moved = c, d
+	for c := range a.reach {
+		to = c
 		break
 	}
 	clickHexAt(a, to)
-	if staff.Pos != to {
-		t.Fatalf("staff did not move: %v, message %q", staff.Pos, a.message)
+	if staff.Pos != city.Pos || st.OrderOf(staff) == nil || a.selUnit != staff {
+		t.Fatalf("staff at %v, order %v, message %q", staff.Pos, st.OrderOf(staff), a.message)
 	}
-	if staff.MovesLeft() != 2-moved || a.selUnit != staff {
-		t.Errorf("after %d fields: moves %d, selected %v", moved, staff.MovesLeft(), a.selUnit)
+	if !strings.Contains(a.unitState(staff), "move to") {
+		t.Errorf("state %q", a.unitState(staff))
+	}
+	clickHexAt(a, staff.Pos)
+	if st.OrderOf(staff) != nil {
+		t.Fatal("clicking the unit kept its order")
+	}
+	clickHexAt(a, to)
+
+	clickRect(a, nextButton())
+	if staff.Pos != to || st.Active != game.SovietUnion {
+		t.Fatalf("staff at %v, active %v", staff.Pos, st.Active)
+	}
+	for i := 0; i < aiDelayFrames; i++ {
+		a.tick()
+	}
+	if st.Active != game.Wehrmacht || st.Round != 2 {
+		t.Fatalf("after AI: active %v, round %d", st.Active, st.Round)
 	}
 
-	a.cancel()
 	clickHexAt(a, city.Pos)
 	if a.selCity != city {
 		t.Fatal("city not selected")
@@ -111,23 +125,13 @@ func TestPlayerTurnByClicks(t *testing.T) {
 	if u == nil || u.Kind != game.Company {
 		t.Fatalf("no company raised, message %q", a.message)
 	}
-	if st.Stocks[game.Wehrmacht].Manpower != 2 {
+	if st.Stocks[game.Wehrmacht].Manpower != 5 {
 		t.Errorf("manpower = %d", st.Stocks[game.Wehrmacht].Manpower)
-	}
-
-	clickRect(a, nextButton())
-	if st.Active != game.SovietUnion {
-		t.Fatalf("active = %v", st.Active)
-	}
-	for i := 0; i < aiDelayFrames; i++ {
-		a.tick()
-	}
-	if st.Active != game.Wehrmacht || st.Round != 2 {
-		t.Fatalf("after AI: active %v, round %d", st.Active, st.Round)
 	}
 }
 
-// startAttack selects a linked company and clicks an enemy two fields away.
+// startAttack orders a linked company against an enemy two hexes away and
+// commits the turn.
 func startAttack(t *testing.T, a *App) (*game.Unit, *game.Unit) {
 	t.Helper()
 	st := a.st
@@ -141,7 +145,11 @@ func startAttack(t *testing.T, a *App) (*game.Unit, *game.Unit) {
 	e := st.Place(game.SovietUnion, game.Company, game.Coord{Col: 7, Row: 5})
 	clickHexAt(a, u.Pos)
 	clickHexAt(a, e.Pos)
-	if a.attack == nil || a.attack.unit != u || a.attack.target != e.Pos {
+	if o := st.OrderOf(u); o == nil || !o.Attack || a.attack != nil {
+		t.Fatalf("order %v, attack %v, message %q", o, a.attack, a.message)
+	}
+	clickRect(a, nextButton())
+	if a.attack == nil || a.attack.Unit != u || a.attack.Target != e.Pos {
 		t.Fatalf("no attack prompt, message %q", a.message)
 	}
 	return u, e
@@ -173,8 +181,8 @@ func TestStaffCantStartAnAttack(t *testing.T) {
 	staff.Pos = game.Coord{Col: 5, Row: 8}
 	clickHexAt(a, staff.Pos)
 	clickHexAt(a, e.Pos)
-	if a.attack != nil {
-		t.Error("staff opened an attack")
+	if a.st.OrderOf(staff) != nil {
+		t.Error("staff got an attack order")
 	}
 }
 
@@ -188,6 +196,10 @@ func TestCancelledAttackChangesNothing(t *testing.T) {
 	}
 	if u.Pos != pos || u.MovesLeft() != 3 {
 		t.Errorf("unit changed: %v, moves %d", u.Pos, u.MovesLeft())
+	}
+	a.tick()
+	if a.st.Active != game.SovietUnion {
+		t.Errorf("turn did not go on: %v", a.st.Active)
 	}
 }
 
@@ -424,29 +436,39 @@ func TestLostAttackLetsThePlayerFlee(t *testing.T) {
 	}
 }
 
-func TestPlayerPicksTheHexAfterTheAITurn(t *testing.T) {
+// aiFight sets a strong AI company next to a player company and commits.
+func aiFight(t *testing.T, seed uint64) (a *App, own, foe *game.Unit) {
+	t.Helper()
+	f := game.Wehrmacht
+	a, err := New(Options{Seed: seed, Faction: &f})
+	if err != nil {
+		t.Fatal(err)
+	}
+	clearBoard(a)
+	own = a.st.Place(game.Wehrmacht, game.Company, game.Coord{Col: 5, Row: 5})
+	foe = a.st.Place(game.SovietUnion, game.Company, game.Coord{Col: 6, Row: 5})
+	foe.Element.Current = 6
+	clickRect(a, nextButton())
+	return a, own, foe
+}
+
+func aiFrames(a *App) {
+	for i := 0; i < aiDelayFrames+1; i++ {
+		a.tick()
+	}
+}
+
+func TestPlayerPicksTheHexDuringTheAITurn(t *testing.T) {
 	// The fight is rolled, so look for a seed where the company survives it.
 	for seed := uint64(1); seed < 100; seed++ {
-		f := game.Wehrmacht
-		a, err := New(Options{Seed: seed, Faction: &f})
-		if err != nil {
-			t.Fatal(err)
-		}
-		clearBoard(a)
+		a, own, foe := aiFight(t, seed)
+		hex, enemyHex := own.Pos, foe.Pos
+		aiFrames(a)
 		st := a.st
-		hex := game.Coord{Col: 5, Row: 5}
-		enemyHex := game.Coord{Col: 6, Row: 5}
-		own := st.Place(game.Wehrmacht, game.Company, hex)
-		foe := st.Place(game.SovietUnion, game.Company, enemyHex)
-		foe.Element.Current = 6
-		clickRect(a, nextButton())
-		for i := 0; i < aiDelayFrames; i++ {
-			a.tick()
-		}
 		if st.NextRout() == nil {
 			continue
 		}
-		if st.Active != game.Wehrmacht || own.Pos != hex || foe.Pos != enemyHex || a.selUnit != own {
+		if st.Active != game.SovietUnion || own.Pos != hex || foe.Pos != enemyHex || a.selUnit != own {
 			t.Fatalf("active %v, own %v, foe %v, selected %v", st.Active, own.Pos, foe.Pos, a.selUnit)
 		}
 		var to game.Coord
@@ -458,24 +480,61 @@ func TestPlayerPicksTheHexAfterTheAITurn(t *testing.T) {
 		if own.Pos != to || foe.Pos != hex {
 			t.Fatalf("own %v, foe %v", own.Pos, foe.Pos)
 		}
+		aiFrames(a)
+		if st.Active != game.Wehrmacht || !own.Resting || own.MovesLeft() != 0 {
+			t.Fatalf("active %v, resting %v, moves %d", st.Active, own.Resting, own.MovesLeft())
+		}
+		if !strings.Contains(a.unitState(own), "Beaten") {
+			t.Errorf("state %q", a.unitState(own))
+		}
 		return
 	}
 	t.Fatal("no seed left a beaten company alive")
 }
 
-func TestUnreadableResultLeavesManualEntry(t *testing.T) {
-	a := newApp(t, game.Wehrmacht)
-	a.readResult = func(mission.Scenario, time.Time) (*game.FieldResult, error) {
-		return nil, errors.New("no result in the log")
+func TestAIAttackGoesToThePlayer(t *testing.T) {
+	a, own, foe := aiFight(t, 7)
+	a.runMission = func(mission.Scenario) error { return nil }
+	aiFrames(a)
+	if !a.incoming() || a.attack.Unit != foe || a.attack.Target != own.Pos {
+		t.Fatalf("attack %+v", a.attack)
 	}
-	runningBattle(t, a)
-	letResultPoll(a)
-	if !strings.Contains(a.battle.failure, "no result") || a.battle.result != nil {
-		t.Fatalf("battle %+v", a.battle)
+	if !strings.Contains(a.promptTitle(), "enemy attacks") {
+		t.Errorf("title %q", a.promptTitle())
 	}
-	clickRect(a, outcomeButton(1))
-	if a.battle != nil || len(a.st.Reports) != 1 {
-		t.Fatalf("battle %v, reports %d", a.battle, len(a.st.Reports))
+
+	// The AI's attack can't be refused, and the turn waits.
+	a.cancel()
+	clickRect(a, cancelAttackButton())
+	aiFrames(a)
+	if a.attack == nil || a.st.Active != game.SovietUnion || len(a.st.Reports) != 0 {
+		t.Fatalf("attack %v, active %v, reports %d", a.attack, a.st.Active, len(a.st.Reports))
+	}
+
+	clickRect(a, missionButton())
+	if s := a.battle.scenario; !s.Defending || s.Base != "tr04" || s.Sides.Player.Platoons[0].Callsign != "panther_01" {
+		t.Fatalf("scenario %+v", s)
+	}
+	clickRect(a, startMissionButton())
+	waitForMission(t, a)
+
+	// Victory is the player's: the attacker fails and the defender stays.
+	hex := own.Pos
+	clickRect(a, outcomeButton(0))
+	if a.attack != nil || a.st.UnitAt(hex) != own || !foe.Beaten {
+		t.Fatalf("attack %v, on hex %v, beaten %v", a.attack, a.st.UnitAt(hex), foe.Beaten)
+	}
+	aiFrames(a)
+	if a.st.Active != game.Wehrmacht {
+		t.Fatalf("active %v", a.st.Active)
+	}
+}
+
+func TestAIAttackIsAutomaticWithoutTheTools(t *testing.T) {
+	a, _, _ := aiFight(t, 7)
+	aiFrames(a)
+	if a.attack != nil || len(a.st.Reports) != 1 {
+		t.Fatalf("attack %v, reports %d", a.attack, len(a.st.Reports))
 	}
 }
 
@@ -536,8 +595,8 @@ func TestPromptBlocksTheMap(t *testing.T) {
 		t.Error("turn ended behind the prompt")
 	}
 	a.cancel()
-	if a.attack != nil || a.selUnit != u {
-		t.Errorf("attack %v, selection %v", a.attack, a.selUnit)
+	if a.attack != nil || u.MovesLeft() != 3 {
+		t.Errorf("attack %v, moves %d", a.attack, u.MovesLeft())
 	}
 }
 

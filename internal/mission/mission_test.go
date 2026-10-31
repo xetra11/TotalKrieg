@@ -225,17 +225,20 @@ func TestGeneratorAcceptsScenarios(t *testing.T) {
 			if f == game.SovietUnion {
 				b.Player, b.Enemy = r[:n[0]], g[:n[1]]
 			}
-			sc := Build(b)
-			sc.ID += fmt.Sprintf("_%d_%d_%d", f, n[0], n[1])
-			res, err := Prepare(cfg, sc)
-			if err != nil {
-				t.Fatalf("%s: %v\n%s", sc.ID, err, res.Output)
-			}
-			if _, err := os.Stat(res.MissionFile); err != nil {
-				t.Fatalf("%s: no mission file", sc.ID)
-			}
-			if strings.Contains(res.Output, "note:") {
-				t.Logf("%s: %s", sc.ID, res.Output)
+			for _, defending := range []bool{false, true} {
+				b.Defending = defending
+				sc := Build(b)
+				sc.ID += fmt.Sprintf("_%d_%d_%d_%v", f, n[0], n[1], defending)
+				res, err := Prepare(cfg, sc)
+				if err != nil {
+					t.Fatalf("%s: %v\n%s", sc.ID, err, res.Output)
+				}
+				if _, err := os.Stat(res.MissionFile); err != nil {
+					t.Fatalf("%s: no mission file", sc.ID)
+				}
+				if strings.Contains(res.Output, "note:") {
+					t.Logf("%s: %s", sc.ID, res.Output)
+				}
 			}
 		}
 	}
@@ -299,5 +302,46 @@ func TestMissingNodeIsReported(t *testing.T) {
 	c := Config{ToolDir: dir, OutDir: dir, Node: filepath.Join(dir, "no-node.exe")}
 	if _, err := Prepare(c, Scenario{ID: "test"}); err == nil {
 		t.Error("ran without Node.js")
+	}
+}
+
+func TestDefenseMission(t *testing.T) {
+	s := game.New(3, game.SovietUnion)
+	own := s.Place(game.SovietUnion, game.Company, game.Coord{Col: 5, Row: 5})
+	foe := s.Place(game.Wehrmacht, game.Company, game.Coord{Col: 6, Row: 5})
+	s.EndTurn()
+	b := NewBattle(s, foe, own.Pos)
+	if !b.Defending || b.Faction != game.SovietUnion || b.Player[0] != own.Element || b.Enemy[0] != foe.Element {
+		t.Fatalf("battle %+v", b)
+	}
+	sc := Build(b)
+	if sc.Base != "sm01" || !sc.Defending || sc.Defeat == nil || sc.Defeat.EnemyReaches != "own_pos" {
+		t.Fatalf("scenario %+v", sc)
+	}
+	if sc.Roster[0].Owner != own.Element {
+		t.Errorf("roster starts with %+v", sc.Roster[0])
+	}
+	foeSide := sc.Sides.Enemy
+	if len(foeSide.Orders) != 1 || foeSide.Orders[0].To != "own_pos" || foeSide.Platoons[0].Plan != "attack" {
+		t.Errorf("enemy %+v", foeSide)
+	}
+	if _, ok := sc.Points[foeSide.Deploy.At]; !ok {
+		t.Errorf("enemy deploys at %q", foeSide.Deploy.At)
+	}
+	if _, ok := sc.Points[sc.Sides.Player.Deploy.At]; !ok {
+		t.Errorf("player deploys at %q", sc.Sides.Player.Deploy.At)
+	}
+	if _, err := json.Marshal(sc); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAttackMissionHasNoDefeatRule(t *testing.T) {
+	s := emptyState()
+	own := battalion(s, game.Wehrmacht, game.Coord{Col: 5, Row: 5})
+	foe := battalion(s, game.SovietUnion, game.Coord{Col: 15, Row: 5})
+	sc := Build(Battle{Round: 1, Faction: game.Wehrmacht, Player: own[:1], Enemy: foe[:1]})
+	if sc.Defeat != nil || sc.Defending || sc.Base != "tr06" || sc.Sides.Enemy.Platoons[0].Plan != "defend" {
+		t.Errorf("scenario %+v", sc)
 	}
 }

@@ -57,10 +57,28 @@ func ReadResult(c Config, s Scenario, since time.Time) (*game.FieldResult, error
 	if err != nil {
 		return nil, err
 	}
-	return parseResult(data, string(log), s.Roster)
+	res, err := parseResult(data, string(log), s.Roster)
+	if err != nil {
+		return nil, err
+	}
+	if s.Defending {
+		res.Outcome = swapped(res.Outcome)
+	}
+	return res, nil
 }
 
-// parseResult joins the result file and the log. The file lists squads platoon
+// swapped turns a result from the player's side into one from the attacker's.
+func swapped(o game.Outcome) game.Outcome {
+	switch o {
+	case game.AttackerWins:
+		return game.DefenderWins
+	case game.DefenderWins:
+		return game.AttackerWins
+	}
+	return o
+}
+
+// parseResult joins the result file and the log, from the player's side. The file lists squads platoon
 // by platoon in mission order, so the n-th platoon is the n-th roster entry.
 func parseResult(data []byte, log string, roster []RosterEntry) (*game.FieldResult, error) {
 	text, code, err := tacticalResult(log)

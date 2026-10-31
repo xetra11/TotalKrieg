@@ -19,7 +19,11 @@ var tacticalOptions = []string{
 	"Combat Mission Multiplayer",
 }
 
+// outcomes follows the buttons Victory, Draw and Defeat, which speak for the
+// player attacking.
 var outcomes = []game.Outcome{game.AttackerWins, game.Draw, game.DefenderWins}
+
+var outcomeLabels = []string{"Victory", "Draw", "Defeat"}
 
 var attackPrompt = rect{mapW/2 - 330, 110, 660, 560}
 
@@ -84,17 +88,37 @@ func (a *App) clickAttackPrompt(x, y float64) {
 	case missionButton().contains(x, y) && a.runMission != nil:
 		a.previewMission()
 	case cancelAttackButton().contains(x, y):
-		a.attack = nil
-		a.message = "Attack cancelled."
+		a.cancelAttack()
 	}
+}
+
+// incoming reports whether the pending fight is an AI attack.
+func (a *App) incoming() bool {
+	return a.attack != nil && a.attack.Unit.Faction != a.st.First
+}
+
+// cancelAttack drops the player's own attack. The AI's attacks can't be refused.
+func (a *App) cancelAttack() {
+	if a.incoming() {
+		return
+	}
+	a.takeFight()
+	a.message = "Attack cancelled."
+}
+
+// takeFight closes the dialog and tells the turn that its fight is dealt with.
+func (a *App) takeFight() *game.Fight {
+	f := a.attack
+	a.battle, a.attack = nil, nil
+	f.Resolved = true
+	return f
 }
 
 // resolveAuto lets the rules decide the pending fight.
 func (a *App) resolveAuto() {
-	u, target := a.attack.unit, a.attack.target
-	a.attack = nil
-	r, err := a.st.Attack(u, target)
-	a.finishFight(u, r, err)
+	f := a.takeFight()
+	r, err := a.st.Attack(f.Unit, f.Target)
+	a.finishFight(f.Unit, r, err)
 }
 
 func (a *App) finishFight(u *game.Unit, r game.Report, err error) {
@@ -102,9 +126,9 @@ func (a *App) finishFight(u *game.Unit, r game.Report, err error) {
 		a.message = err.Error()
 		return
 	}
-	a.message = fmt.Sprintf("Battle: own losses %d, enemy %d.", r.AttackerLoss, r.DefenderLoss)
+	a.message = fmt.Sprintf("Battle: attacker lost %d, defender %d.", r.AttackerLoss, r.DefenderLoss)
 	a.mapDirty = true
-	if r.AttackerDestroyed {
+	if r.AttackerDestroyed || u.Faction != a.st.First {
 		a.clearSelection()
 	} else {
 		a.selectUnit(u)
@@ -149,7 +173,7 @@ func (a *App) clickRout(x, y float64) {
 
 // previewMission shows the line-up of the fight. Nothing starts yet.
 func (a *App) previewMission() {
-	b := mission.NewBattle(a.st, a.attack.unit, a.attack.target)
+	b := mission.NewBattle(a.st, a.attack.Unit, a.attack.Target)
 	a.battle = &externalBattle{
 		scenario: mission.Build(b),
 		own:      mappingRows(b.Player, len(b.PlayerStaffs)),
@@ -286,10 +310,10 @@ func (a *App) pollResult() {
 
 // applyResult books the reported losses.
 func (a *App) applyResult() {
-	u, target, res := a.attack.unit, a.attack.target, a.battle.result
-	a.battle, a.attack = nil, nil
-	r, err := a.st.ApplyFieldResult(u, target, res)
-	a.finishFight(u, r, err)
+	res := a.battle.result
+	f := a.takeFight()
+	r, err := a.st.ApplyFieldResult(f.Unit, f.Target, res)
+	a.finishFight(f.Unit, r, err)
 }
 
 func (a *App) clickBattleDialog(x, y float64) {
@@ -309,12 +333,15 @@ func (a *App) clickBattleDialog(x, y float64) {
 }
 
 func (a *App) clickOutcome(x, y float64) {
-	for i, o := range outcomes {
+	for i := range outcomes {
 		if outcomeButton(i).contains(x, y) {
-			u, target := a.attack.unit, a.attack.target
-			a.battle, a.attack = nil, nil
-			r, err := a.st.ResolveBattle(u, target, o)
-			a.finishFight(u, r, err)
+			o := outcomes[i]
+			if a.incoming() {
+				o = outcomes[len(outcomes)-1-i]
+			}
+			f := a.takeFight()
+			r, err := a.st.ResolveBattle(f.Unit, f.Target, o)
+			a.finishFight(f.Unit, r, err)
 			return
 		}
 	}
@@ -324,7 +351,7 @@ func (a *App) drawResult(dst *ebiten.Image) {
 	r, res, s := resultPanel, a.battle.result, a.battle.sides
 	fillRect(dst, r, colChrome)
 	strokeRect(dst, r, 2, colAmber)
-	a.label(dst, "Battle at "+hexName(a.attack.target), r.x+24, r.y+16, 16, colAmber, true, text.AlignStart)
+	a.label(dst, "Battle at "+hexName(a.attack.Target), r.x+24, r.y+16, 16, colAmber, true, text.AlignStart)
 	a.label(dst, "Mius-Front reports: "+res.Text, r.x+24, r.y+40, 24, colText, true, text.AlignStart)
 	a.drawLossColumn(dst, "Own forces", s.Player, s.PlayerStaffs, res, r.x+24)
 	a.drawLossColumn(dst, "Enemy", s.Enemy, s.EnemyStaffs, res, r.x+r.w/2+8)
@@ -354,10 +381,10 @@ func (a *App) drawAttackPrompt(dst *ebiten.Image) {
 		return
 	}
 	r := attackPrompt
-	attackers, defenders := a.st.Engagement(a.attack.unit, a.attack.target)
+	attackers, defenders := a.st.Engagement(a.attack.Unit, a.attack.Target)
 	fillRect(dst, r, colChrome)
 	strokeRect(dst, r, 2, colAmber)
-	a.label(dst, "Battle at "+hexName(a.attack.target), r.x+24, r.y+16, 16, colAmber, true, text.AlignStart)
+	a.label(dst, "Battle at "+hexName(a.attack.Target), r.x+24, r.y+16, 16, colAmber, true, text.AlignStart)
 	a.label(dst, a.promptTitle(), r.x+24, r.y+40, 24, colText, true, text.AlignStart)
 
 	a.drawCombatant(dst, attackers, r.x+24, r.y+84, "Attacker")
@@ -373,6 +400,8 @@ func (a *App) drawAttackPrompt(dst *ebiten.Image) {
 
 func (a *App) promptTitle() string {
 	switch {
+	case a.battle == nil && a.incoming():
+		return "The enemy attacks. How is it resolved?"
 	case a.battle == nil:
 		return "How should the attack be resolved?"
 	case a.battle.done != nil:
@@ -404,9 +433,11 @@ func (a *App) drawResolveOptions(dst *ebiten.Image) {
 		a.label(dst, name, row.x+12, row.y+9, 14, colDisabled, false, text.AlignStart)
 	}
 
-	c := cancelAttackButton()
-	strokeRect(dst, c, 2, colMuted)
-	a.label(dst, "Cancel", c.x+c.w/2, c.y+11, 15, colText, true, text.AlignCenter)
+	if !a.incoming() {
+		c := cancelAttackButton()
+		strokeRect(dst, c, 2, colMuted)
+		a.label(dst, "Cancel", c.x+c.w/2, c.y+11, 15, colText, true, text.AlignCenter)
+	}
 }
 
 func (a *App) drawBattleStatus(dst *ebiten.Image) {
@@ -425,8 +456,8 @@ func (a *App) drawBattleStatus(dst *ebiten.Image) {
 		} else {
 			a.label(dst, "The result comes in by itself when the battle ends. Otherwise enter it here.", r.x+24, r.y+450, 15, colMuted, false, text.AlignStart)
 		}
-		for i, o := range outcomes {
-			a.drawButton(dst, outcomeButton(i), o.String(), true)
+		for i, name := range outcomeLabels {
+			a.drawButton(dst, outcomeButton(i), name, true)
 		}
 	default:
 		if a.battle.failure != "" {

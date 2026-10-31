@@ -81,7 +81,7 @@ Each battalion consists of a command staff and its companies, all of which stand
 | Battalion | Staff, 3 rifle companies of 3 each, 1 MG company of 3 | Staff, 3 rifle companies of 2 each, 1 MG company of 2, 1 mortar company of 1 |
 
 - **Companies:** Each company has a callsign and a leader, an officer or NCO. Both are invented. German callsigns stay in German as names.
-- **Staff link:** A company is linked if its staff stands at most 4 hexes away. It then moves 3 hexes, without a link only 1 hex. If the staff moves up, the link applies again at once.
+- **Staff link:** A company is linked if its staff stands at most 4 hexes away. It then moves 3 hexes, without a link only 1 hex. Links count from where the units stand during planning, so a staff that moves up restores them next turn.
 - **Staff:** It moves 2 hexes, never attacks and captures nothing. It has strength 1 and can be attacked. If it falls, its companies lose their link.
 - **Affiliation:** The order of battle shows the battalion, companies, positions and losses. A dashed line connects staff and companies on the map, a red dot marks companies without a link.
 - **Independent companies:** Companies raised on their own belong to no battalion and therefore always move only 1 hex.
@@ -122,11 +122,12 @@ Units appear only in own cities and the capital, as long as the manpower lasts. 
 
 ## Turn Sequence
 
-A round consists of the player's turn and the AI's turn, without fixed phases. Income comes at the start of a turn, then the side acts in any order until it ends its turn.
+A round consists of the player's turn and the AI's turn, without fixed phases. Income comes at the start of a turn. The side then plans its orders and commits them together.
 
-- **Raise:** Cities raise units at any time during the own turn.
-- **Move:** Each unit may move as far as its movement allows per round, also in several steps. Enemy hexes block.
-- **Attack:** A company that moves onto an enemy-held hex starts a battle. The step onto the enemy counts. It advances to the hex next to the enemy.
+- **Raise:** Cities raise units at any time during the own turn. This happens at once, so the city hex must be free at that moment.
+- **Move:** Each unit gets one order per turn, a hex within its movement. Enemy hexes block. An order can be changed or dropped until the turn is committed. No two orders may end on the same hex, and a hex another unit stands on is taken.
+- **Attack:** An order onto an enemy-held hex is an attack. The step onto the enemy counts. On commit, the company advances to the hex next to the enemy and the battle starts.
+- **Commit:** Ending the turn carries out all orders. Companies move first, attacks follow in the order they were given, staffs move last. An order that became impossible lapses.
 - **Capture:** A company that ends its turn on an enemy object takes it over.
 
 Several companies take part in a battle on both sides:
@@ -134,7 +135,7 @@ Several companies take part in a battle on both sides:
 - **Attacker:** The attacking company and all own companies next to the target hex that have not fought this round. All attackers are done for the round afterwards.
 - **Defender:** The unit on the target hex and all its companies next to the target hex.
 
-When the player attacks, a dialog asks how the battle is resolved: automatically or as a mission in Mius-Front. Hexfront, MiusPlayer and Combat Mission are listed as tactical layers in the dialog, but are still open. Cancel leaves everything unchanged. AI attacks are resolved automatically.
+Every battle of the player opens a dialog, on the commit of an own attack or during the AI's turn when it attacks. The dialog asks how the battle is resolved: automatically or as a mission in Mius-Front. Hexfront, MiusPlayer and Combat Mission are listed as tactical layers in the dialog, but are still open. Cancel drops an own attack and the company stays where it is. An AI attack can't be refused, and the AI waits for the result. Without MiusMissionMaker, AI attacks are resolved automatically.
 
 The automatic resolution is kept short because tactical games will supplement it later:
 
@@ -148,13 +149,14 @@ After every battle with a winner, the lead unit of the beaten side flees if it s
 
 - **Direction:** It moves one hex to a free neighboring hex farther from the enemy. That costs no movement.
 - **Choice:** A player unit flees to the hex the player clicks. Nothing else is possible until then. AI units flee at once.
-- **AI turn:** Beaten player units stay put until the AI has ended its turn. The player then chooses. Until then the AI can attack them again.
+- **AI turn:** When the AI beats a player unit, its turn waits until the player has chosen.
 - **Advance:** If the defender flees, the attacker's lead company advances onto the vacated hex.
 - **No way out:** Without a free hex the unit stays and the winner does not advance.
+- **Sitting out:** All surviving units of the beaten side sit out their next turn. They can't move or attack, but they can be attacked, defend and hold objects. The map marks them in orange until that turn is over.
 
 ## Mius-Front Integration
 
-The player can fight an attack in Graviteam Tactics: Mius-Front. For this, TotalKrieg uses MiusMissionMaker to create a mission with exactly the companies of the battle, so 2 against 3 companies stay 2 against 3 there too.
+The player can fight any battle in Graviteam Tactics: Mius-Front, whether attacking or defending. For this, TotalKrieg uses MiusMissionMaker to create a mission with exactly the companies of the battle, so 2 against 3 companies stay 2 against 3 there too.
 
 | TotalKrieg | Mius-Front | Wehrmacht unit | Soviet unit |
 | --- | --- | --- | --- |
@@ -167,13 +169,15 @@ The player can fight an attack in Graviteam Tactics: Mius-Front. For this, Total
 - **Strength:** A weakened rifle company fields proportionally fewer rifle platoons, rounded up. MG and mortar companies keep their platoon.
 - **Staffs:** A staff comes along if a company in the battle is linked to it or if it is attacked itself.
 - **Limit:** MiusMissionMaker allows 15 platoons per formation type. Larger battles are scaled down proportionally on both sides. Combat platoons go before company HQs, staffs drop out first.
-- **Map:** The mission uses a fixed map: `tr06` for the Wehrmacht, `tr02` for the Soviet Union. The player attacks. A defender in a city is dug in, otherwise it stands in the open in line.
+- **Attack map:** When the player attacks, the mission uses a fixed map: `tr06` for the Wehrmacht, `tr02` for the Soviet Union. The player wins by taking the enemy position.
+- **Defense map:** When the AI attacks, the mission uses `tr04` for the Wehrmacht and `sm01` for the Soviet Union. The AI gets the order to attack the player's position. The player wins at twice the enemy's strength and loses when the enemy reaches the position.
+- **Defender:** A defender in a city is dug in, otherwise it stands in the open in line.
 - **Sequence:** The dialog first shows the battle line-up. Only "Start Mius-Front" builds the mission and opens the game.
 - **Result:** At the end of the battle, Mius-Front writes a result file and the outcome to its log. TotalKrieg checks once per second and shows the outcome and the list of losses as soon as they are there. "Apply result" books the losses.
 - **List of losses:** It shows each company's strength before and after, below it every platoon with its lost squads and the condition of the others. Each side has a total of lost squads. Numbers of men are not in the result file.
 - **Losses:** Each platoon belongs to a company or a staff. The company keeps the share of its strength that its platoons kept on average. A company with survivors keeps at least 1 strength. Companies left out when scaling down share the average of their side. A staff whose platoon was lost entirely disappears from the map.
-- **Outcome:** On victory or defeat the beaten side flees as described above, on a draw everyone stays. Result code 3 counts as a draw, which has not yet been confirmed in a real battle.
-- **Fallback:** As long as there is no result, Victory, Draw and Defeat are available to choose. Fixed losses then apply:
+- **Outcome:** Mius-Front reports from the player's side, and TotalKrieg turns that into the attacker's result. On victory or defeat the beaten side flees as described above, on a draw everyone stays. Result code 3 counts as a draw, which has not yet been confirmed in a real battle.
+- **Fallback:** As long as there is no result, Victory, Draw and Defeat are available to choose, always from the player's side. Fixed losses then apply, here for a player attack. In an AI attack the table reads from the AI's side:
 
 | Result | Attacker loss | Defender loss |
 | --- | --- | --- |
@@ -197,13 +201,13 @@ Whoever captures the enemy capital wins at once. Without such a victory after 40
 
 ## UI
 
-The prototype takes the layout and style of the concept art, but replaces the free map with the hex grid. The battle choice popup appears on every player attack. The art shows both factions with their own signs.
+The prototype takes the layout and style of the concept art, but replaces the free map with the hex grid. The battle choice popup appears on every battle of the player. The art shows both factions with their own signs.
 
 ![Concept art: operational map with battle popup](../concept/operational-map-battle-popup.png)
 
-- **Top bar:** Round, manpower, resources, end turn.
-- **Map:** Hex grid, objects, units with symbol and number.
-- **Unit panel:** Name, strength, movement, staff link, historical establishment strength.
+- **Top bar:** Round, manpower, resources, commit orders.
+- **Map:** Hex grid, objects, units with symbol and number, planned orders as arrows, beaten units in orange.
+- **Unit panel:** Name, strength, movement or order, staff link, historical establishment strength.
 - **City panel:** Choose and raise a unit, costs visible, units that are too expensive locked.
 - **Combat log:** Latest battles with losses.
 
@@ -215,9 +219,10 @@ These points were not given and are set as assumptions in this document. Each ch
 - [ ] Does the capital count as a city, so 3 instead of 2 manpower per round?
 - [ ] What function do villages have? None in the MVP so far
 - [ ] Confirm the reference date of summer 1943 for all organizations
-- [ ] Check combat rules, movement, costs and strengths in a balance test. AI against AI, 400 matches: Wehrmacht 368, Soviet Union 26, draws 6
+- [ ] Check combat rules, movement, costs and strengths in a balance test. AI against AI, 400 matches: Wehrmacht 365, Soviet Union 25, draws 10
 - [ ] May every unit move per turn, or only one? Currently every unit
-- [ ] Should the player also choose the resolver for AI attacks? Currently automatic
+- [ ] Should orders be able to swap hexes, so a unit can move onto a hex another one leaves? Currently not
+- [ ] Does sitting out hit the whole beaten side or only the lead unit? Currently the whole side
 - [ ] Which levels of the result code exist in Mius-Front, and what does the score in the result file mean?
 - [ ] More maps for the Mius-Front missions, such as villages and defensive situations
 - [ ] Starting forces: 1 battalion with all companies in every city and in the capital

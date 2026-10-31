@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"image/png"
+	"iter"
 	"math/rand/v2"
 	"os"
 	"time"
@@ -32,12 +33,6 @@ type Options struct {
 	Mission  mission.Config
 }
 
-// pendingAttack is a fight waiting for the player's choice of resolver.
-type pendingAttack struct {
-	unit   *game.Unit
-	target game.Coord
-}
-
 // App is the running program.
 type App struct {
 	opts Options
@@ -50,10 +45,14 @@ type App struct {
 	aiWait  int
 
 	showOrg    bool
-	attack     *pendingAttack
+	attack     *game.Fight // waits for the choice of resolver
 	battle     *externalBattle
 	runMission func(mission.Scenario) error // nil without MiusMissionMaker
 	readResult func(mission.Scenario, time.Time) (*game.FieldResult, error)
+
+	// script steps through a commit or an AI turn, which stops at every fight.
+	script     func() (*game.Fight, bool)
+	stopScript func()
 
 	sets      [2]*symbols.Set
 	regular   *text.GoTextFaceSource
@@ -106,6 +105,7 @@ func (a *App) start(f game.Faction) {
 	if seed == 0 {
 		seed = rand.Uint64()
 	}
+	a.endScript()
 	a.st = game.New(seed, f)
 	a.clearSelection()
 	a.message = "Choose a unit or a city."
@@ -165,7 +165,7 @@ func (a *App) cancel() {
 			a.battle = nil
 		}
 	case a.attack != nil:
-		a.attack = nil
+		a.cancelAttack()
 	case a.showOrg:
 		a.showOrg = false
 	default:
@@ -184,38 +184,69 @@ func (a *App) toggleOrg() {
 	a.openOrg()
 }
 
-// tick lets the AI play once the delay ran out.
+// tick steps the running turn and lets the AI start once the delay ran out.
+// Fights and routs wait for the player.
 func (a *App) tick() {
 	a.pollMission()
 	a.pollResult()
-	if a.st == nil || a.st.Over || a.humanTurn() {
+	if a.st == nil || a.st.Over || a.attack != nil || a.routing() {
+		return
+	}
+	if a.script != nil {
+		a.stepScript()
+		return
+	}
+	if a.humanTurn() {
 		a.aiWait = 0
 		return
 	}
 	a.aiWait++
-	if a.aiWait < aiDelayFrames {
-		return
+	if a.aiWait >= aiDelayFrames {
+		a.aiWait = 0
+		a.startScript(a.st.AITurn())
 	}
-	a.st.PlayTurn()
-	a.mapDirty = true
-	a.aiWait = 0
-	if !a.st.Over {
-		a.message = "Your turn."
-	}
-	a.showRout()
 }
 
-// next ends the player's turn.
+// next commits the player's orders.
 func (a *App) next() {
-	if !a.humanTurn() {
+	if !a.humanTurn() || a.script != nil {
 		return
 	}
-	a.st.EndTurn()
 	a.clearSelection()
-	a.mapDirty = true
-	if !a.st.Over {
-		a.message = "The AI is moving."
+	a.message = "The orders are carried out."
+	a.startScript(a.st.CommitTurn())
+}
+
+func (a *App) startScript(turn iter.Seq[*game.Fight]) {
+	a.script, a.stopScript = iter.Pull(turn)
+	a.stepScript()
+}
+
+// stepScript runs the turn to its next fight. The AI's attacks ask the player
+// only when there is another way to fight them than the automatic one.
+func (a *App) stepScript() {
+	fight, ok := a.script()
+	if !ok {
+		a.script, a.stopScript = nil, nil
+		a.mapDirty = true
+		if a.humanTurn() {
+			a.message = "Your turn."
+		} else if !a.st.Over {
+			a.message = "The AI is moving."
+		}
+		return
 	}
+	a.attack = fight
+	if a.incoming() && a.runMission == nil {
+		a.resolveAuto()
+	}
+}
+
+func (a *App) endScript() {
+	if a.stopScript != nil {
+		a.stopScript()
+	}
+	a.script, a.stopScript = nil, nil
 }
 
 func (a *App) click(x, y float64) {
@@ -223,6 +254,7 @@ func (a *App) click(x, y float64) {
 	case a.st == nil:
 		a.clickMenu(x, y)
 	case a.st.Over && newGameButton().contains(x, y):
+		a.endScript()
 		a.st = nil
 		a.clearSelection()
 	case a.battle != nil:
@@ -231,6 +263,7 @@ func (a *App) click(x, y float64) {
 		a.clickAttackPrompt(x, y)
 	case a.routing():
 		a.clickRout(x, y)
+	case a.script != nil:
 	case a.showOrg:
 		a.clickOrg(x, y)
 	case nextButton().contains(x, y):
@@ -277,12 +310,16 @@ func (a *App) clickHex(c game.Coord) {
 	st := a.st
 	own := a.selUnit != nil && a.selUnit.Faction == st.First
 	if a.humanTurn() && own {
-		if _, ok := a.reach[c]; ok {
-			a.moveSelected(c)
+		_, reachable := a.reach[c]
+		_, attackable := st.AttackTargets(a.selUnit)[c]
+		if reachable || attackable {
+			a.planOrder(c)
 			return
 		}
-		if _, ok := st.AttackTargets(a.selUnit)[c]; ok {
-			a.attack = &pendingAttack{a.selUnit, c}
+		if c == a.selUnit.Pos && st.OrderOf(a.selUnit) != nil {
+			st.CancelOrder(a.selUnit)
+			a.message = a.selUnit.Short + ": order cancelled."
+			a.selectUnit(a.selUnit)
 			return
 		}
 	}
@@ -292,12 +329,12 @@ func (a *App) clickHex(c game.Coord) {
 	}
 }
 
-func (a *App) moveSelected(c game.Coord) {
-	if err := a.st.Move(a.selUnit, c); err != nil {
+func (a *App) planOrder(c game.Coord) {
+	if err := a.st.Plan(a.selUnit, c); err != nil {
 		a.message = err.Error()
 		return
 	}
-	a.message = fmt.Sprintf("%s moved.", a.selUnit.Short)
+	a.message = a.selUnit.Short + ": " + orderText(a.st.OrderOf(a.selUnit)) + " planned."
 	a.selectUnit(a.selUnit)
 }
 
