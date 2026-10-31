@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -266,5 +267,37 @@ func TestRosterNamesThePlatoons(t *testing.T) {
 	}
 	if got[1].Owner != mg || got[6].Owner != staff.Element {
 		t.Errorf("owners %v, %v", got[1].Owner, got[6].Owner)
+	}
+}
+
+func TestInstalledLayout(t *testing.T) {
+	dir := t.TempDir()
+	c := Installed(dir, "")
+	if c.Available() {
+		t.Fatal("found tools in an empty folder")
+	}
+	tools := filepath.Join(dir, "MiusMissionMaker", "tools")
+	if err := os.MkdirAll(tools, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tools, "scenario.js"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !c.Available() {
+		t.Fatal("installed tools not found")
+	}
+	if c.Node != filepath.Join(dir, "node", "node.exe") {
+		t.Errorf("node at %s", c.Node)
+	}
+	if strings.HasPrefix(c.OutDir, dir) {
+		t.Errorf("missions go to the program folder: %s", c.OutDir)
+	}
+}
+
+func TestMissingNodeIsReported(t *testing.T) {
+	dir := t.TempDir()
+	c := Config{ToolDir: dir, OutDir: dir, Node: filepath.Join(dir, "no-node.exe")}
+	if _, err := Prepare(c, Scenario{ID: "test"}); err == nil {
+		t.Error("ran without Node.js")
 	}
 }

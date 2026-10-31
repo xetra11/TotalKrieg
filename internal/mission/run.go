@@ -15,6 +15,23 @@ type Config struct {
 	ToolDir string // MiusMissionMaker project folder
 	GameDir string // Mius-Front folder, empty for the Steam default
 	OutDir  string // where scenarios and missions are written
+	Node    string // Node.js program, empty takes it from the PATH
+}
+
+// Installed returns the layout the installer leaves next to the program:
+// MiusMissionMaker with its own Node.js. The program folder is no place for
+// generated files, so those go to the user's cache.
+func Installed(programDir, gameDir string) Config {
+	c := Config{
+		ToolDir: filepath.Join(programDir, "MiusMissionMaker"),
+		GameDir: gameDir,
+		OutDir:  filepath.Join(programDir, "missions"),
+		Node:    filepath.Join(programDir, "node", "node.exe"),
+	}
+	if cache, err := os.UserCacheDir(); err == nil {
+		c.OutDir = filepath.Join(cache, "TotalKrieg", "missions")
+	}
+	return c
 }
 
 // Available reports whether the MiusMissionMaker tools can be found.
@@ -68,8 +85,13 @@ func run(c Config, s Scenario, start bool) (Result, error) {
 	if c.GameDir != "" {
 		args = append(args, "--game", c.GameDir)
 	}
-	cmd := exec.Command("node", args...)
+	node := c.Node
+	if node == "" {
+		node = "node"
+	}
+	cmd := exec.Command(node, args...)
 	cmd.Dir = c.ToolDir
+	hideConsole(cmd)
 	output, runErr := cmd.CombinedOutput()
 	res.Output = string(output)
 	if runErr != nil {

@@ -1,0 +1,60 @@
+name: Installer
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*'
+  # run by hand to pick up a new MiusMissionMaker release
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      # this Node.js ships in the installer
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Test
+        run: go test ./...
+
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+
+      - name: Build installer
+        id: build
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { "0.0.0-$($env:GITHUB_SHA.Substring(0, 7))" }
+          ./installer/build.ps1 -Version $version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TotalKrieg-setup
+          path: dist/TotalKrieg-setup.exe
+          if-no-files-found: error
+
+      # the file name stays the same, so a "latest" link always works
+      - name: Publish
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MISSIONMAKER: ${{ steps.build.outputs.missionmaker }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME dist/TotalKrieg-setup.exe --title $env:GITHUB_REF_NAME --generate-notes --notes "Includes MiusMissionMaker $env:MISSIONMAKER." ||
+            gh release upload $env:GITHUB_REF_NAME dist/TotalKrieg-setup.exe --clobber

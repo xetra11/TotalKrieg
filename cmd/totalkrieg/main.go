@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -14,17 +15,31 @@ import (
 	"github.com/xetra11/TotalKrieg/internal/ui"
 )
 
+// missionConfig prefers a folder given on the command line, then the installed
+// tools, then the project folder next to this repository.
+func missionConfig(tools, gameDir string) mission.Config {
+	if tools != "" {
+		return mission.Config{ToolDir: tools, GameDir: gameDir, OutDir: "missions"}
+	}
+	if exe, err := os.Executable(); err == nil {
+		if c := mission.Installed(filepath.Dir(exe), gameDir); c.Available() {
+			return c
+		}
+	}
+	return mission.Config{ToolDir: "../MiusMissionMaker", GameDir: gameDir, OutDir: "missions"}
+}
+
 func main() {
 	seed := flag.Uint64("seed", 0, "map number, 0 picks at random")
 	faction := flag.String("faction", "", "wehrmacht or sovietunion, skips the menu")
 	autoplay := flag.Int("autoplay", 0, "play this many AI turns before the start")
 	shot := flag.String("shot", "", "write an image to this PNG file and quit")
-	missionMaker := flag.String("missionmaker", "../MiusMissionMaker", "MiusMissionMaker folder")
+	missionMaker := flag.String("missionmaker", "", "MiusMissionMaker folder, empty looks next to the program, then in ../MiusMissionMaker")
 	missionGame := flag.String("miusgame", "", "Mius-Front folder, empty uses the Steam default")
 	flag.Parse()
 
 	opts := ui.Options{Seed: *seed, Autoplay: *autoplay, Shot: *shot}
-	opts.Mission = mission.Config{ToolDir: *missionMaker, GameDir: *missionGame, OutDir: "missions"}
+	opts.Mission = missionConfig(*missionMaker, *missionGame)
 	switch *faction {
 	case "":
 	case "wehrmacht":
