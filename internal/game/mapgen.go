@@ -24,12 +24,12 @@ func generateObjects(rng *rand.Rand) []*Object {
 
 func tryGenerate(rng *rand.Rand) ([]*Object, bool) {
 	var objs []*Object
-	for _, f := range []Faction{Wehrmacht, Sowjetunion} {
+	for _, f := range []Faction{Wehrmacht, SovietUnion} {
 		names := cityNames[f]
 		plan := []struct {
 			kind  ObjectKind
 			count int
-		}{{Hauptstadt, 1}, {Stadt, 2}, {Fabrik, 2}, {Dorf, 5}}
+		}{{Capital, 1}, {City, 2}, {Factory, 2}, {Village, 5}}
 		next := 0
 		for _, p := range plan {
 			for i := 0; i < p.count; i++ {
@@ -64,10 +64,10 @@ func placeObject(rng *rand.Rand, f Faction, kind ObjectKind, objs []*Object) (Co
 func randomSpot(rng *rand.Rand, f Faction, kind ObjectKind) Coord {
 	half := MapCols / 2
 	col := rng.IntN(half)
-	if kind == Hauptstadt {
+	if kind == Capital {
 		col = rng.IntN(half / 2)
 	}
-	if f == Sowjetunion {
+	if f == SovietUnion {
 		col = MapCols - 1 - col
 	}
 	return Coord{col, rng.IntN(MapRows)}
@@ -83,7 +83,7 @@ func farEnough(c Coord, objs []*Object) bool {
 }
 
 func balanced(objs []*Object) bool {
-	diff := meanCityDistance(objs, Wehrmacht) - meanCityDistance(objs, Sowjetunion)
+	diff := meanCityDistance(objs, Wehrmacht) - meanCityDistance(objs, SovietUnion)
 	if diff < 0 {
 		diff = -diff
 	}

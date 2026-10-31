@@ -1,202 +1,241 @@
-# TotalKrieg – Game Design Document (Prototyp)
+# TotalKrieg – Game Design Document (Prototype)
 
-Stand: 30. Oktober 2026
+As of: 30 October 2026
 
 ## Vision
 
-TotalKrieg ist ein rundenbasiertes Operationsspiel auf einer Hexkarte: Wehrmacht gegen Sowjetunion, ein Spieler gegen die KI. Der Prototyp prüft genau eine Frage: Trägt die Schleife aus Städten halten, Manpower sammeln, Einheiten aufstellen und Städte erobern eine ganze Partie?
+TotalKrieg is a turn-based operational game on a hex map: Wehrmacht against the Soviet Union, one player against the AI. The prototype tests exactly one question: does the loop of holding cities, gathering manpower, raising units and capturing cities carry a whole match?
 
-Die Karte liest sich wie eine Lagekarte: historische Gliederung, historische Symbole, wenig Regeln. Langfristig sollen Schlachten in taktischen Spielen ausgetragen werden, wie es die Konzeptgrafik zeigt. Das ist nicht Teil dieses Prototyps.
+The map reads like a situation map: historical organization, historical symbols, few rules. In the long run, battles will be fought in tactical games, as the concept art shows. That is not part of this prototype.
 
-## MVP-Umfang
+## MVP Scope
 
-Der MVP enthält nur Infanterie, zwei Fraktionen und zwei Einkommensarten. Alles andere wartet, bis die Grundschleife nachweislich Spaß macht.
+The MVP contains only infantry, two factions and two kinds of income. Everything else waits until the core loop has proven to be fun.
 
-| Bereich | Im MVP | Später |
+| Area | In the MVP | Later |
 | --- | --- | --- |
-| Spielfeld | Hexkarte, Objekte zufällig verteilt | Gelände, Flüsse, historische Karten |
-| Fraktionen | Wehrmacht, Sowjetunion | Weitere Nationen |
-| Einheiten | Infanterie: Division, Bataillon, Kompanie | Panzer, Artillerie, weitere Waffengattungen |
-| Gegner | Spieler gegen KI | Mehrspieler |
-| Einkommen | 1 Ressource pro Fabrik, 1 Manpower pro Stadt, je Runde | Mehr Quellen, Handel |
-| Ressourcen | Werden gesammelt, haben noch keine Funktion | Munitionsaufstockung |
-| Schlachten | Dialog beim Angriff, nur automatische Auflösung aktiv | Übergabe an taktische Spiele |
+| Playing field | Hex map, objects placed at random | Terrain, rivers, historical maps |
+| Factions | Wehrmacht, Soviet Union | More nations |
+| Units | Infantry: companies and battalion staffs | Divisions, tanks, artillery, other branches |
+| Opponent | Player against AI | Multiplayer |
+| Income | 1 resource per factory, 1 manpower per city, each round | More sources, trade |
+| Resources | Gathered, no function yet | Ammunition resupply |
+| Battles | Dialog on attack: automatic or as a mission in Mius-Front | More tactical games |
 
-## Spielfeld
+## Playing Field
 
-Das Spielfeld ist ein Hexraster, auf dem bei jedem neuen Spiel 20 Objekte zufällig verteilt werden, je 10 pro Fraktion. Als Startwert gelten 24 × 16 Hexfelder ohne Gelände. Jedes Feld hat 6 Nachbarn und hält höchstens eine Einheit pro Seite.
+The playing field is a hex grid on which 20 objects are placed at random for every new game, 10 per faction. The starting size is 24 × 16 hexes without terrain. Each hex has 6 neighbors and holds at most one unit per side.
 
-| Objekt | Pro Fraktion | Wirkung im MVP |
+| Object | Per faction | Effect in the MVP |
 | --- | --- | --- |
-| Hauptstadt | 1 | Zählt als Stadt: 1 Manpower pro Runde, stellt Einheiten auf |
-| Stadt | 2 | 1 Manpower pro Runde, stellt Einheiten auf |
-| Dorf | 5 | Kein Einkommen, kann erobert werden |
-| Fabrik | 2 | 1 Ressource pro Runde |
+| Capital | 1 | Counts as a city: 1 manpower per round, raises units |
+| City | 2 | 1 manpower per round, raises units |
+| Village | 5 | No income, can be captured |
+| Factory | 2 | 1 resource per round |
 
-Die Verteilung soll zufällig, aber fair sein:
+The placement should be random but fair:
 
-1. Die Karte wird in eine West- und eine Osthälfte geteilt. Die Wehrmacht erhält West, die Sowjetunion Ost.
-2. Jede Hauptstadt landet in der hinteren Hälfte ihrer Seite.
-3. Städte, Fabriken und Dörfer folgen auf freien Feldern der eigenen Seite, mit mindestens 2 Feldern Abstand zueinander.
-4. Ein Spiel wird verworfen und neu gewürfelt, wenn sich die mittlere Entfernung der Städte zur Mittellinie zwischen den Seiten um mehr als 2 Felder unterscheidet.
-5. Der Zufallswert (Seed) wird gespeichert, damit sich Karten für Tests wiederholen lassen.
+1. The map is split into a western and an eastern half. The Wehrmacht gets the west, the Soviet Union the east.
+2. Each capital lands in the rear half of its side.
+3. Cities, factories and villages follow on free hexes of their own side, at least 2 hexes apart.
+4. A game is thrown out and rolled again if the mean distance of the cities to the center line differs by more than 2 hexes between the sides.
+5. The random value (seed) is stored so maps can be repeated for tests.
 
-## Fraktionen
+## Factions
 
-Beide Fraktionen spielen nach denselben Regeln und starten mit demselben Besitz; sie unterscheiden sich nur in Gliederung, Stärke und Symbolen. Der Spieler wählt eine Seite, die KI übernimmt die andere. Stichtag für alle historischen Angaben ist Sommer 1943, wie in der Konzeptgrafik.
+Both factions play by the same rules and start with the same holdings; they differ only in organization, strength and symbols. The player chooses a side, the AI takes the other. The reference date for all historical data is summer 1943, as in the concept art.
 
-| Merkmal | Wehrmacht | Sowjetunion |
+| Feature | Wehrmacht | Soviet Union |
 | --- | --- | --- |
-| Großverband im MVP | Infanterie-Division | Schützendivision |
-| Gültiger Stand | Alte Gliederung, vor der Reform vom Oktober 1943 | Stand 10. Dezember 1942, Schtat 04/550 |
-| Kartenfarbe | Blau | Rot |
-| Startposition | Westhälfte | Osthälfte |
+| Formation in the MVP | Infantry battalion | Rifle battalion |
+| Valid status | Old organization, before the reform of October 1943 | Status of 10 December 1942, Shtat 04/550 |
+| Map color | Blue | Red |
+| Starting position | Western half | Eastern half |
 
-## Einheiten
+## Units
 
-Im MVP gibt es drei Einheitentypen pro Fraktion: Kompanie, Bataillon und Division. Die historischen Sollstärken stehen im Infofenster jeder Einheit, die Spielwerte sind bewusst verdichtet.
+Only companies fight on the map, battalions stand behind them as command staffs. Divisions come after the MVP. The historical establishment strengths are shown in each unit's info panel, the game values are deliberately condensed.
 
-| Ebene | Wehrmacht 1943 | Mann | Sowjetunion 1943 | Mann |
+| Level | Wehrmacht 1943 | Men | Soviet Union 1943 | Men |
 | --- | --- | --- | --- | --- |
-| Division | Infanterie-Division, 3 Regimenter | 16.977 | Schützendivision, 3 Regimenter | ca. 9.500 |
-| Regiment (nur Info) | 3 Bataillone | 3.159 | Schützenregiment | ca. 2.500 |
-| Bataillon | 3 Schützenkompanien, 1 MG-Kompanie | 838 | 3 Schützenkompanien, 1 MG-Kompanie, 1 Granatwerfer-Kompanie | 619 |
-| Kompanie | Schützenkompanie | 187 | Schützenkompanie | 143 |
+| Battalion | 3 rifle companies, 1 MG company | 838 | 3 rifle companies, 1 MG company, 1 mortar company | 619 |
+| Company | Rifle company | 187 | Rifle company | 143 |
 
-Wehrmacht-Werte: [TM-E 30-451, Stand 1. September 1943](https://archive.org/details/TM-E30-451), Abbildungen 3, 19 und 22; das sind US-Schätzungen der Sollstärke. Sowjetische Werte: [Bataillon und Kompanie nach Schtat 04/551](https://bayonetstrength.uk/RedArmy/RedArmyRifleBn/OrgRedRifleBn-headerpg.htm), [Division und Regiment gerundet nach ww2-weapons.com](https://ww2-weapons.com/red-army-1943-45). Die Sollstärken wurden im Krieg selten erreicht.
+Wehrmacht values: [TM-E 30-451, as of 1 September 1943](https://archive.org/details/TM-E30-451), figure 22; these are US estimates of the establishment strength. Soviet values: [battalion and company after Shtat 04/551](https://bayonetstrength.uk/RedArmy/RedArmyRifleBn/OrgRedRifleBn-headerpg.htm). Establishment strengths were rarely reached during the war.
 
-Die Spielwerte unten sind Startwerte für den Balancetest. Die Sowjetunion zahlt für Bataillon und Division weniger, weil ihre Verbände historisch kleiner sind.
+The game values below are starting values for the balance test. The Soviet Union pays less for a battalion because its formations were historically smaller.
 
-| Einheit | Kosten Wehrmacht | Stärke Wehrmacht | Kosten Sowjetunion | Stärke Sowjetunion | Bewegung pro Runde |
+| Unit | Wehrmacht cost | Wehrmacht strength | Soviet cost | Soviet strength | Movement per round |
 | --- | --- | --- | --- | --- | --- |
-| Kompanie | 1 Manpower | 3 | 1 Manpower | 2 | 3 Felder |
-| Bataillon | 3 Manpower | 12 | 2 Manpower | 9 | 2 Felder |
-| Division | 27 Manpower | 108 | 18 Manpower | 81 | 1 Feld |
+| Company | 1 manpower | 3 | 1 manpower | 2 | 3 hexes with a staff link, otherwise 1 hex |
+| Battalion with all companies | 3 manpower | Staff 1, companies 12 | 2 manpower | Staff 1, companies 9 | Staff 2 hexes |
 
-Einheiten tragen Namen aus einer Liste realer Verbände. Diese Liste muss vor dem Bau gegen Quellen geprüft werden.
+Units carry names from a list of real formations. This list must be checked against sources before it is built.
 
-## Gliederung
+## Order of Battle
 
-Jede Einheit besitzt eine feste Gliederung, und ihre Stärke ist die Summe ihrer Kompanien. Ein Teilverband kann eigenständig ziehen, bleibt aber immer Teil seines Stammverbands. So lassen sich Zangenbewegungen führen.
+Each battalion consists of a command staff and its companies, all of which stand on the map individually. The companies fight, the staff leads them and gives them their movement.
 
-| Ebene | Wehrmacht | Sowjetunion |
+| Level | Wehrmacht | Soviet Union |
 | --- | --- | --- |
-| Division | 3 Regimenter, 36 Kompanien | 3 Regimenter, 45 Kompanien |
-| Regiment | 3 Bataillone, nur in der Gliederung | 3 Bataillone, nur in der Gliederung |
-| Bataillon | 3 Schützenkompanien zu je 3, 1 MG-Kompanie zu 3 | 3 Schützenkompanien zu je 2, 1 MG-Kompanie zu 2, 1 Granatwerfer-Kompanie zu 1 |
+| Battalion | Staff, 3 rifle companies of 3 each, 1 MG company of 3 | Staff, 3 rifle companies of 2 each, 1 MG company of 2, 1 mortar company of 1 |
 
-- **Kompanien:** Jede Kompanie hat einen Rufnamen und einen Führer, Offizier oder Unteroffizier. Beides ist frei erfunden.
-- **Ausgliedern:** Im eigenen Zug verlässt eine Kompanie oder ein Bataillon den Verband auf ein freies Nachbarfeld. Das geht nur, bevor der Verband zieht, und mindestens eine Kompanie bleibt zurück. Der neue Teilverband darf noch in derselben Runde ziehen.
-- **Zugehörigkeit:** Ausgegliederte Teile bleiben in der Gliederung stehen. Eine gestrichelte Linie auf der Karte verbindet alle Teile eines Verbands.
-- **Eingliedern:** Steht ein Teilverband neben seinem Stammverband, kehrt er im eigenen Zug zurück. Verluste bleiben bestehen.
-- **Verluste:** Sie treffen nur den angegriffenen Verband und verteilen sich gleichmäßig auf seine anwesenden Kompanien. Eine Kompanie auf 0 gilt als aufgerieben und bleibt in der Gliederung sichtbar.
-- **Vernichtung:** Fällt der Stammverband, kämpfen ausgegliederte Teile weiter. Sie können sich der nächsthöheren Ebene anschließen, die noch auf der Karte steht.
+- **Companies:** Each company has a callsign and a leader, an officer or NCO. Both are invented. German callsigns stay in German as names.
+- **Staff link:** A company is linked if its staff stands at most 4 hexes away. It then moves 3 hexes, without a link only 1 hex. If the staff moves up, the link applies again at once.
+- **Staff:** It moves 2 hexes, never attacks and captures nothing. It has strength 1 and can be attacked. If it falls, its companies lose their link.
+- **Affiliation:** The order of battle shows the battalion, companies, positions and losses. A dashed line connects staff and companies on the map, a red dot marks companies without a link.
+- **Independent companies:** Companies raised on their own belong to no battalion and therefore always move only 1 hex.
 
-Die KI gliedert im MVP nicht aus.
+## Unit Symbols
 
-## Einheitensymbole
+Both factions now have sourced symbols: the Wehrmacht after H.Dv. 272 of 1941, the Soviet Union after the US handbook TM 30-430 of 1946. The Soviet status is thus well documented, but not exactly confirmed for summer 1943.
 
-Beide Fraktionen haben jetzt belegte Symbole: die Wehrmacht nach H.Dv. 272 von 1941, die Sowjetunion nach dem US-Handbuch TM 30-430 von 1946. Der sowjetische Stand ist damit gut belegt, aber nicht exakt für Sommer 1943 gesichert.
+![Symbols in the MVP: 3 levels, 2 factions](images/unit-symbols.png)
 
-![Symbole im MVP: 3 Ebenen, 2 Fraktionen](images/einheitensymbole.png)
+**Wehrmacht:** The shapes follow H.Dv. 272 of 1941. The [Bundesarchiv guide](https://www.bundesarchiv.de/im-archiv-recherchieren/archivgut-recherchieren/nach-themen/lagekarten-verstehen/) describes the division pennant, the infantry rectangle and the colors: blue for German units, red for the enemy. The battalion pennant and the company rule come from [Panzerworld](https://panzerworld.com/german-tactical-symbols-command-levels) ([branches](https://panzerworld.com/german-tactical-symbols-branches)).
 
-**Wehrmacht:** Die Formen folgen der H.Dv. 272 von 1941. Der [Bundesarchiv-Leitfaden](https://www.bundesarchiv.de/im-archiv-recherchieren/archivgut-recherchieren/nach-themen/lagekarten-verstehen/) beschreibt den Divisionswimpel, das Infanterie-Rechteck und die Farben: Blau für deutsche Einheiten, Rot für den Feind. Bataillonswimpel und Kompanieregel stammen aus [Panzerworld](https://panzerworld.com/german-tactical-symbols-command-levels) ([Waffengattungen](https://panzerworld.com/german-tactical-symbols-branches)).
+**Soviet Union:** The shapes come from [TM 30-430, chapter XII, of 15 October 1946](references/TM-30-430-Kapitel-XII-1946.pdf), pages XII-7 and XII-8. The division carries a swallowtail flag, the regiment a rectangular flag, the battalion a triangular pennant. The label gives number and abbreviation: сд for rifle division, сп for rifle regiment, сб for rifle battalion. The game writes these in English: RR for the rifle regiment, Rfl, MG and Mtr for its companies. For the company, the MVP uses the sign of the company position area, a square with a double-crossed staff.
 
-**Sowjetunion:** Die Formen stammen aus [TM 30-430, Kapitel XII, vom 15. Oktober 1946](references/TM-30-430-Kapitel-XII-1946.pdf), Seiten XII-7 und XII-8. Die Division führt eine Flagge mit Schwalbenschwanz, das Regiment eine Rechteckflagge, das Bataillon einen Dreieckswimpel. Die Beschriftung nennt Nummer und Kürzel: сд für Schützendivision, сп für Schützenregiment, сб für Schützenbataillon. Für die Kompanie nutzt der MVP das Zeichen des Kompanie-Stellungsraums, ein Quadrat mit zweifach gekreuztem Stab.
+The handbook warns that Soviet signs changed a lot, especially since 1942, and that even service regulations were inconsistent. This status is enough for the prototype. A Soviet original from 1943 remains an open check.
 
-Das Handbuch warnt, dass sich sowjetische Zeichen vor allem seit 1942 stark geändert haben und selbst Dienstvorschriften uneinheitlich waren. Für den Prototyp reicht dieser Stand. Ein sowjetisches Original von 1943 bleibt ein offener Prüfpunkt.
+The colors fit on both sides: German maps show own troops in blue and the enemy in red, Soviet maps own troops in red and the enemy in blue. So the Wehrmacht is always blue, the Soviet Union always red.
 
-Die Farben passen auf beiden Seiten: Deutsche Karten zeigen eigene Truppen blau und den Feind rot, sowjetische eigene Truppen rot und den Feind blau. Die Wehrmacht ist also immer blau, die Sowjetunion immer rot.
+Symbols are built as an exchangeable set per faction, so later corrections need no code change.
 
-Symbole werden pro Fraktion als austauschbares Set gebaut, damit spätere Korrekturen ohne Codeänderung einziehen.
+## Economy
 
-## Wirtschaft
+Income depends only on holdings: each factory yields 1 resource, each city 1 manpower per round. With the full starting holdings that is 2 resources and 3 manpower, if the capital counts as a city.
 
-Das Einkommen hängt allein am Besitz: Jede Fabrik bringt 1 Ressource, jede Stadt 1 Manpower pro Runde. Mit vollem Startbesitz sind das 2 Ressourcen und 3 Manpower, wenn die Hauptstadt als Stadt zählt.
+- **Manpower** sits in a common pool of the faction and is spent on raising units. Leftovers are kept.
+- **Resources** are only gathered and shown in the MVP. Later they pay for ammunition resupply.
+- **Capture** shifts income: whoever holds an object collects for it from the next round on.
 
-- **Manpower** liegt in einem gemeinsamen Vorrat der Fraktion und wird zum Aufstellen von Einheiten ausgegeben. Reste bleiben erhalten.
-- **Ressourcen** werden im MVP nur gesammelt und angezeigt. Später bezahlen sie die Munitionsaufstockung.
-- **Eroberung** verschiebt das Einkommen: Wer ein Objekt hält, kassiert ab der nächsten Runde dafür.
+## Raising Units
 
-## Aufstellung
+Units appear only in own cities and the capital, as long as the manpower lasts. A battalion appears with its staff on the city hex and its companies on the free hexes next to it.
 
-Einheiten entstehen nur in eigenen Städten und der Hauptstadt, solange die Manpower reicht. Bei 3 Manpower pro Runde kostet eine Wehrmacht-Division 9 Runden, eine sowjetische 6 Runden Einkommen.
+- Each city raises at most one unit per round.
+- The unit appears on the city hex. If it is occupied, nothing can be raised there.
+- A new unit can only move or attack from the next round on.
+- Villages and factories raise no units.
+- At the start every city and the capital hold a battalion with all its companies, manpower starts at 0.
 
-- Jede Stadt stellt pro Runde höchstens eine Einheit auf.
-- Die Einheit erscheint auf dem Stadtfeld. Ist es besetzt, ist dort keine Aufstellung möglich.
-- Eine neue Einheit kann erst in der nächsten Runde ziehen oder angreifen.
-- Dörfer und Fabriken stellen keine Einheiten auf.
-- Zum Start steht in jeder Stadt und in der Hauptstadt ein Bataillon, die Manpower beginnt bei 0.
+## Turn Sequence
 
-## Rundenablauf
+A round consists of the player's turn and the AI's turn, without fixed phases. Income comes at the start of a turn, then the side acts in any order until it ends its turn.
 
-Eine Runde besteht aus dem Zug des Spielers und dem Zug der KI, ohne feste Phasen. Zu Zugbeginn kommt das Einkommen, danach handelt die Seite in beliebiger Reihenfolge, bis sie den Zug beendet.
+- **Raise:** Cities raise units at any time during the own turn.
+- **Move:** Each unit may move as far as its movement allows per round, also in several steps. Enemy hexes block.
+- **Attack:** A company that moves onto an enemy-held hex starts a battle. The step onto the enemy counts. It advances to the hex next to the enemy.
+- **Capture:** A company that ends its turn on an enemy object takes it over.
 
-- **Aufstellen:** Städte stellen jederzeit im eigenen Zug Einheiten auf.
-- **Bewegen:** Jede Einheit hat pro Runde so viele Felder wie ihre Bewegung, auch in mehreren Schritten. Feindliche Felder blockieren.
-- **Angreifen:** Eine Bewegung auf ein feindlich besetztes Feld löst einen Angriff aus. Der Schritt auf den Gegner zählt mit. Die Einheit rückt bis neben den Gegner vor, danach ist ihre Bewegung beendet.
-- **Erobern:** Wer seinen Zug auf einem gegnerischen Objekt beendet, übernimmt es.
+Several companies take part in a battle on both sides:
 
-Beim Angriff des Spielers fragt ein Dialog, wie das Gefecht aufgelöst wird. Im MVP ist nur die automatische Auflösung aktiv. Hexfront, MiusPlayer und Combat Mission stehen als Tactical Layer im Dialog, sind aber noch offen. Abbrechen lässt alles unverändert. Angriffe der KI werden automatisch aufgelöst.
+- **Attacker:** The attacking company and all own companies next to the target hex that have not fought this round. All attackers are done for the round afterwards.
+- **Defender:** The unit on the target hex and all its companies next to the target hex.
 
-Die automatische Auflösung ist kurz gehalten, weil sie später durch taktische Spiele ergänzt wird:
+When the player attacks, a dialog asks how the battle is resolved: automatically or as a mission in Mius-Front. Hexfront, MiusPlayer and Combat Mission are listed as tactical layers in the dialog, but are still open. Cancel leaves everything unchanged. AI attacks are resolved automatically.
 
-- Beide Seiten würfeln 20 bis 40 Prozent. Jede verliert Punkte in Höhe von gegnerischer Stärke mal Wurf, aufgerundet.
-- Ein Verteidiger in Stadt oder Hauptstadt zählt mit 25 Prozent mehr Stärke.
-- Bei 0 Stärke ist die Einheit vernichtet. Stirbt der Verteidiger, rückt der Angreifer auf das Feld vor.
-- Verluste bleiben bestehen, denn Aufstockung kommt erst mit den Ressourcen.
+The automatic resolution is kept short because tactical games will supplement it later:
 
-## KI-Gegner
+- Both sides roll 20 to 40 percent. Each loses points equal to the opposing total strength times the roll, rounded up.
+- A defender in a city or capital counts with 25 percent more strength.
+- Losses always hit the strongest unit involved first. At 0 strength it is destroyed. If the unit on the target hex falls, the attacking company advances there.
+- The beaten side is the one that lost the larger share of its strength. With equal shares the battle ends in a draw.
+- Losses stay, because replacements only come with resources.
 
-Die KI spielt nach denselben Regeln wie der Spieler, sieht aber die ganze Karte, weil der MVP keinen Nebel des Krieges hat. Sie arbeitet pro Runde eine feste Prioritätenliste ab:
+After every battle with a winner, the lead unit of the beaten side flees if it survived:
 
-1. **Verteidigen:** Steht ein Gegner bis zu 2 Felder vor einer eigenen Stadt, zieht die nächste Einheit dorthin.
-2. **Angreifen:** Sie greift an, wenn ihre Stärke mindestens das 1,2-Fache des Ziels beträgt.
-3. **Erobern:** Übrige Einheiten ziehen zum nächsten Objekt, gewichtet nach Hauptstadt, Stadt, Fabrik, Dorf.
-4. **Aufstellen:** Ist eine Stadt bedroht, stellt sie sofort Kompanien auf. Sonst spart sie auf eine Division.
+- **Direction:** It moves one hex to a free neighboring hex farther from the enemy. That costs no movement.
+- **Choice:** A player unit flees to the hex the player clicks. Nothing else is possible until then. AI units flee at once.
+- **AI turn:** Beaten player units stay put until the AI has ended its turn. The player then chooses. Until then the AI can attack them again.
+- **Advance:** If the defender flees, the attacker's lead company advances onto the vacated hex.
+- **No way out:** Without a free hex the unit stays and the winner does not advance.
 
-## Sieg und Niederlage
+## Mius-Front Integration
 
-Wer die gegnerische Hauptstadt erobert, gewinnt sofort. Fehlt nach 40 Runden ein solcher Sieg, gewinnt die Seite mit mehr Städten; bei Gleichstand entscheidet die Summe aller Objekte, danach ist es ein Unentschieden.
+The player can fight an attack in Graviteam Tactics: Mius-Front. For this, TotalKrieg uses MiusMissionMaker to create a mission with exactly the companies of the battle, so 2 against 3 companies stay 2 against 3 there too.
+
+| TotalKrieg | Mius-Front | Wehrmacht unit | Soviet unit |
+| --- | --- | --- | --- |
+| Rifle company | Company HQ and 3 rifle platoons | `wer_mibn_1141_comcoy`, `wer_mibn_1141_plat` | `ra_rbn_1242_comcoy`, `ra_rbn_1242_plat2` |
+| MG company | Company HQ and 1 MG platoon | `wer_mibn_1141_mg_com`, `wer_mibn_1141_mg_plat1` | `ra_rbn_1242_mg_com`, `ra_rbn_1242_mg_plat` |
+| Mortar company | Company HQ and 1 mortar platoon | does not exist | `ra_rbn_1242_mt82_com`, `ra_rbn_1242_mt82_plat` |
+| Battalion staff | Battalion HQ | `wer_mibn_1141_combat` | `ra_rbn_1242_combat` |
+
+- **Participants:** The mission contains exactly the companies of the battle, see Turn Sequence. The order of battle and the dialog show what each company becomes.
+- **Strength:** A weakened rifle company fields proportionally fewer rifle platoons, rounded up. MG and mortar companies keep their platoon.
+- **Staffs:** A staff comes along if a company in the battle is linked to it or if it is attacked itself.
+- **Limit:** MiusMissionMaker allows 15 platoons per formation type. Larger battles are scaled down proportionally on both sides. Combat platoons go before company HQs, staffs drop out first.
+- **Map:** The mission uses a fixed map: `tr06` for the Wehrmacht, `tr02` for the Soviet Union. The player attacks. A defender in a city is dug in, otherwise it stands in the open in line.
+- **Sequence:** The dialog first shows the battle line-up. Only "Start Mius-Front" builds the mission and opens the game.
+- **Result:** At the end of the battle, Mius-Front writes a result file and the outcome to its log. TotalKrieg checks once per second and shows the outcome and the list of losses as soon as they are there. "Apply result" books the losses.
+- **List of losses:** It shows each company's strength before and after, below it every platoon with its lost squads and the condition of the others. Each side has a total of lost squads. Numbers of men are not in the result file.
+- **Losses:** Each platoon belongs to a company or a staff. The company keeps the share of its strength that its platoons kept on average. A company with survivors keeps at least 1 strength. Companies left out when scaling down share the average of their side. A staff whose platoon was lost entirely disappears from the map.
+- **Outcome:** On victory or defeat the beaten side flees as described above, on a draw everyone stays. Result code 3 counts as a draw, which has not yet been confirmed in a real battle.
+- **Fallback:** As long as there is no result, Victory, Draw and Defeat are available to choose. Fixed losses then apply:
+
+| Result | Attacker loss | Defender loss |
+| --- | --- | --- |
+| Victory | 25 percent | All involved destroyed, the attacker advances |
+| Draw | 30 percent | 30 percent |
+| Defeat | 50 percent | 20 percent |
+
+## AI Opponent
+
+The AI plays by the same rules as the player, but sees the whole map, because the MVP has no fog of war. It works through a fixed list of priorities each round:
+
+1. **Defend:** If an enemy stands up to 2 hexes from an own city, the nearest unit moves there.
+2. **Attack:** It attacks if its strength is at least 1.2 times that of the target.
+3. **Capture:** Remaining companies move to the next object, weighted by capital, city, factory, village.
+4. **Lead:** Staffs move to the center of their companies.
+5. **Raise:** If a city is threatened, it raises companies at once. Otherwise it saves for a battalion.
+
+## Victory and Defeat
+
+Whoever captures the enemy capital wins at once. Without such a victory after 40 rounds, the side with more cities wins; on a tie the sum of all objects decides, after that it is a draw.
 
 ## UI
 
-Der Prototyp übernimmt Aufbau und Stil der Konzeptgrafik, ersetzt aber die freie Karte durch das Hexraster. Das Popup zur Schlachtwahl erscheint bei jedem Angriff des Spielers. Die Grafik zeigt beide Fraktionen mit ihren eigenen Zeichen.
+The prototype takes the layout and style of the concept art, but replaces the free map with the hex grid. The battle choice popup appears on every player attack. The art shows both factions with their own signs.
 
-![Konzeptgrafik: operative Karte mit Schlacht-Popup](../concept/operational-map-battle-popup.png)
+![Concept art: operational map with battle popup](../concept/operational-map-battle-popup.png)
 
-- **Obere Leiste:** Runde, Manpower, Ressourcen, Zug beenden.
-- **Karte:** Hexraster, Objekte, Einheiten mit Symbol und Nummer.
-- **Einheitenfenster:** Name, Stärke, Bewegung, historische Sollstärke.
-- **Stadtfenster:** Einheit wählen und aufstellen, Kosten sichtbar, zu teure Einheiten gesperrt.
-- **Kampfbericht:** Letzte Gefechte mit Verlusten.
+- **Top bar:** Round, manpower, resources, end turn.
+- **Map:** Hex grid, objects, units with symbol and number.
+- **Unit panel:** Name, strength, movement, staff link, historical establishment strength.
+- **City panel:** Choose and raise a unit, costs visible, units that are too expensive locked.
+- **Combat log:** Latest battles with losses.
 
-## Offene Entscheidungen
+## Open Decisions
 
-Diese Punkte waren nicht vorgegeben und sind im Dokument als Annahmen gesetzt. Jeder Haken bedeutet: bestätigt oder geändert.
+These points were not given and are set as assumptions in this document. Each check means: confirmed or changed.
 
-- [ ] Sowjetische Symbole gegen ein Original von 1943 prüfen
-- [ ] Zählt die Hauptstadt als Stadt, also 3 statt 2 Manpower pro Runde?
-- [ ] Welche Funktion haben Dörfer? Im MVP derzeit keine
-- [ ] Stichtag Sommer 1943 für alle Gliederungen bestätigen
-- [ ] Kampfregeln, Bewegung, Kosten und Stärken im Balancetest prüfen. KI gegen KI, 400 Partien: Wehrmacht 284, Sowjetunion 111, Unentschieden 5
-- [ ] Darf pro Zug jede Einheit ziehen oder nur eine? Derzeit jede
-- [ ] Soll der Spieler auch bei Angriffen der KI den Resolver wählen? Derzeit automatisch
-- [ ] Startkräfte: je 1 Bataillon in jeder Stadt und in der Hauptstadt
-- [ ] Sieg: Hauptstadt erobern oder Städtevergleich nach 40 Runden
-- [ ] Kartengröße 24 × 16 und eine Einheit pro Feld
-- [ ] Regimenter: im MVP keine spielbare Einheit, nur Info
-- [ ] Liste realer Verbandsnamen je Fraktion erstellen und prüfen
-- [ ] Zielplattform festlegen. Die Engine ist Go mit Ebitengine, getestet unter Windows
+- [ ] Check Soviet symbols against an original from 1943
+- [ ] Does the capital count as a city, so 3 instead of 2 manpower per round?
+- [ ] What function do villages have? None in the MVP so far
+- [ ] Confirm the reference date of summer 1943 for all organizations
+- [ ] Check combat rules, movement, costs and strengths in a balance test. AI against AI, 400 matches: Wehrmacht 368, Soviet Union 26, draws 6
+- [ ] May every unit move per turn, or only one? Currently every unit
+- [ ] Should the player also choose the resolver for AI attacks? Currently automatic
+- [ ] Which levels of the result code exist in Mius-Front, and what does the score in the result file mean?
+- [ ] More maps for the Mius-Front missions, such as villages and defensive situations
+- [ ] Starting forces: 1 battalion with all companies in every city and in the capital
+- [ ] Victory: capture the capital or compare cities after 40 rounds
+- [ ] Map size 24 × 16 and one unit per hex
+- [ ] Does the player move staffs or do they follow automatically? Currently the player does
+- [ ] Should independent companies be able to join a battalion?
+- [ ] Create and check a list of real formation names per faction
+- [ ] Decide the target platform. The engine is Go with Ebitengine, tested on Windows
 
-## Quellen
+## Sources
 
-- [TM-E 30-451, Handbook on German Military Forces, 1. September 1943](https://archive.org/details/TM-E30-451)
-- [Tactical and Technical Trends Nr. 34: German Infantry Division](https://lonesentry.com/articles/ttt34/german-infantry-division.html)
-- [Red Army Rifle Battalion, Schtat 04/551, 10. Dezember 1942, Gary Kennedy](https://bayonetstrength.uk/RedArmy/RedArmyRifleBn/OrgRedRifleBn-headerpg.htm)
+- [TM-E 30-451, Handbook on German Military Forces, 1 September 1943](https://archive.org/details/TM-E30-451)
+- [Tactical and Technical Trends No. 34: German Infantry Division](https://lonesentry.com/articles/ttt34/german-infantry-division.html)
+- [Red Army Rifle Battalion, Shtat 04/551, 10 December 1942, Gary Kennedy](https://bayonetstrength.uk/RedArmy/RedArmyRifleBn/OrgRedRifleBn-headerpg.htm)
 - [Red Army 1943-45, ww2-weapons.com](https://ww2-weapons.com/red-army-1943-45)
 - [Lagekarten verstehen, Bundesarchiv](https://www.bundesarchiv.de/im-archiv-recherchieren/archivgut-recherchieren/nach-themen/lagekarten-verstehen/)
 - [Command Level Symbols, Panzerworld](https://panzerworld.com/german-tactical-symbols-command-levels)
 - [Branch Symbols, Panzerworld](https://panzerworld.com/german-tactical-symbols-branches)
 - [Russian Maps, Battle Order](https://www.battleorder.org/post/rus-maps)
-- [TM 30-430, Handbook on USSR Military Forces, Kapitel XII, 15. Oktober 1946](https://digitalcommons.unl.edu/dodmilintel/29)
+- [TM 30-430, Handbook on USSR Military Forces, chapter XII, 15 October 1946](https://digitalcommons.unl.edu/dodmilintel/29)

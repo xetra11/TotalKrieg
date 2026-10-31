@@ -4,22 +4,7 @@ import "testing"
 
 // setStrength puts a unit at an exact strength.
 func setStrength(u *Unit, n int) {
-	for _, c := range u.Element.companies(true) {
-		c.Current = c.Full
-	}
-	u.takeLoss(u.FullStrength() - n)
-}
-
-// openField returns a match without objects or units, in the movement phase.
-func openField() *State {
-	s := New(5, Wehrmacht)
-	clearField(s)
-	s.Objects = nil
-	return s
-}
-
-func firstCompany(u *Unit) *Element {
-	return u.Element.companies(true)[0]
+	u.Element.Current = n
 }
 
 func TestBattalionStructure(t *testing.T) {
@@ -27,39 +12,17 @@ func TestBattalionStructure(t *testing.T) {
 	cases := []struct {
 		faction Faction
 		count   int
-	}{{Wehrmacht, 4}, {Sowjetunion, 5}}
+	}{{Wehrmacht, 4}, {SovietUnion, 5}}
 	for i, c := range cases {
-		u := s.Place(c.faction, Bataillon, Coord{i, 0})
+		u := s.Place(c.faction, Battalion, Coord{5 + i*10, 5})
 		if got := len(u.Element.Children); got != c.count {
 			t.Errorf("%v battalion has %d companies, want %d", c.faction, got, c.count)
 		}
-		if got, want := u.Strength(), Stats(c.faction, Bataillon).Strength; got != want {
+		if got := len(u.Element.Tokens()); got != c.count+1 {
+			t.Errorf("%v battalion has %d map units, want %d", c.faction, got, c.count+1)
+		}
+		if got, want := u.Element.Strength(), Stats(c.faction, Battalion).Strength; got != want {
 			t.Errorf("%v battalion strength %d, want %d", c.faction, got, want)
-		}
-	}
-}
-
-func TestDivisionStructure(t *testing.T) {
-	s := openField()
-	cases := []struct {
-		faction   Faction
-		companies int
-	}{{Wehrmacht, 36}, {Sowjetunion, 45}}
-	for i, c := range cases {
-		u := s.Place(c.faction, Division, Coord{i, 0})
-		if got := len(u.Element.Children); got != 3 {
-			t.Fatalf("%d regiments, want 3", got)
-		}
-		for _, reg := range u.Element.Children {
-			if reg.Kind != Regiment || len(reg.Children) != 3 {
-				t.Errorf("regiment %s has %d battalions", reg.Short, len(reg.Children))
-			}
-		}
-		if got := len(u.Element.companies(true)); got != c.companies {
-			t.Errorf("%v division has %d companies, want %d", c.faction, got, c.companies)
-		}
-		if got, want := u.Strength(), Stats(c.faction, Division).Strength; got != want {
-			t.Errorf("%v division strength %d, want %d", c.faction, got, want)
 		}
 	}
 }
@@ -67,212 +30,248 @@ func TestDivisionStructure(t *testing.T) {
 func TestCompaniesHaveCallsignAndLeader(t *testing.T) {
 	s := openField()
 	seen := map[string]bool{}
-	for _, c := range s.Place(Wehrmacht, Division, Coord{0, 0}).Element.companies(true) {
-		if c.Callsign == "" || c.Leader == "" {
-			t.Fatalf("company %s lacks callsign or leader", c.Short)
-		}
-		if seen[c.Callsign] {
-			t.Errorf("callsign %s used twice", c.Callsign)
-		}
-		seen[c.Callsign] = true
-		if seen[c.Short] {
-			t.Errorf("designation %s used twice", c.Short)
-		}
-		seen[c.Short] = true
-	}
-}
-
-func TestDetachKeepsMembership(t *testing.T) {
-	s := openField()
-	u := s.Place(Wehrmacht, Bataillon, Coord{5, 5})
-	c := firstCompany(u)
-	to := Coord{6, 5}
-	k, err := s.Detach(c, to)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if k.Pos != to || k.Kind != Kompanie || k.Strength() != c.Full {
-		t.Fatalf("detachment = %+v", k)
-	}
-	if u.Strength() != 9 {
-		t.Errorf("parent strength %d, want 9", u.Strength())
-	}
-	if c.Parent != u.Element || c.Root() != u.Element || len(u.Element.Children) != 4 {
-		t.Error("company lost its place in the battalion")
-	}
-	if !c.Detached() {
-		t.Error("company not marked as detached")
-	}
-	if len(u.Element.Tokens()) != 2 {
-		t.Errorf("formation has %d tokens, want 2", len(u.Element.Tokens()))
-	}
-}
-
-func TestPincerBothSidesMoveInOneTurn(t *testing.T) {
-	s := openField()
-	u := s.Place(Wehrmacht, Bataillon, Coord{10, 8})
-	k, err := s.Detach(firstCompany(u), Coord{10, 7})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Move(k, Coord{11, 5}); err != nil {
-		t.Errorf("detachment can't move: %v", err)
-	}
-	if err := s.Move(u, Coord{10, 10}); err != nil {
-		t.Errorf("parent can't move: %v", err)
-	}
-}
-
-func TestDetachRules(t *testing.T) {
-	s := openField()
-	u := s.Place(Wehrmacht, Bataillon, Coord{5, 5})
-	c := firstCompany(u)
-
-	if _, err := s.Detach(c, Coord{8, 5}); err == nil {
-		t.Error("detached onto a far hex")
-	}
-	s.Place(Sowjetunion, Kompanie, Coord{6, 5})
-	if _, err := s.Detach(c, Coord{6, 5}); err == nil {
-		t.Error("detached onto an occupied hex")
-	}
-	u.MovesLeft = 1
-	if err := s.CanDetach(c); err == nil {
-		t.Error("detached after the parent moved")
-	}
-}
-
-func TestLastCompanyStays(t *testing.T) {
-	s := openField()
-	u := s.Place(Wehrmacht, Bataillon, Coord{10, 8})
-	spots := s.DetachSpots(u)
-	children := u.Element.Children
 	for i := 0; i < 3; i++ {
-		if _, err := s.Detach(children[i], spots[i]); err != nil {
+		for _, c := range s.Place(Wehrmacht, Battalion, Coord{3 + 6*i, 8}).Element.Children {
+			if c.Callsign == "" || c.Leader == "" {
+				t.Fatalf("company %s lacks callsign or leader", c.Short)
+			}
+			if seen[c.Callsign] || seen[c.Short] {
+				t.Errorf("%s or %s used twice", c.Callsign, c.Short)
+			}
+			seen[c.Callsign], seen[c.Short] = true, true
+		}
+	}
+}
+
+func TestStaffsNeverAttack(t *testing.T) {
+	s := openField()
+	u := s.Place(Wehrmacht, Battalion, Coord{5, 5})
+	s.Place(SovietUnion, Company, Coord{5, 6})
+	if len(s.AttackTargets(u)) != 0 {
+		t.Error("staff has attack targets")
+	}
+}
+
+func TestLinkSetsCompanyMovement(t *testing.T) {
+	s := openField()
+	staff := s.Place(Wehrmacht, Battalion, Coord{5, 5})
+	c := staff.Element.Children[0].Token
+	if !c.Linked() || c.MovesLeft() != 3 {
+		t.Fatalf("linked %v, moves %d", c.Linked(), c.MovesLeft())
+	}
+	c.Pos = Coord{5 + CommandRange + 1, 5}
+	if c.Linked() {
+		t.Fatal("linked beyond the command range")
+	}
+	if c.MovesLeft() != UnlinkedMove {
+		t.Errorf("moves %d without link, want %d", c.MovesLeft(), UnlinkedMove)
+	}
+	if n := len(s.Reachable(c)); n != 6 {
+		t.Errorf("reaches %d hexes without link, want 6", n)
+	}
+}
+
+func TestMovingTheStaffRestoresTheLink(t *testing.T) {
+	s := openField()
+	staff := s.Place(Wehrmacht, Battalion, Coord{5, 5})
+	c := staff.Element.Children[0].Token
+	for _, x := range staff.Element.Children[1:] {
+		s.remove(x.Token)
+	}
+	c.Pos = Coord{10, 5}
+	if err := s.Move(staff, Coord{6, 5}); err != nil {
+		t.Fatal(err)
+	}
+	if !c.Linked() || c.MovesLeft() != 3 {
+		t.Errorf("linked %v, moves %d", c.Linked(), c.MovesLeft())
+	}
+}
+
+func TestDestroyedStaffCutsTheLink(t *testing.T) {
+	s := openField()
+	staff := s.Place(Wehrmacht, Battalion, Coord{5, 5})
+	c := staff.Element.Children[0].Token
+	s.remove(staff)
+	if c.Linked() || c.MovesLeft() != UnlinkedMove {
+		t.Errorf("linked %v, moves %d", c.Linked(), c.MovesLeft())
+	}
+	if c.Element.Parent != staff.Element {
+		t.Error("company lost its battalion")
+	}
+}
+
+func TestFreeCompanyHasNoLink(t *testing.T) {
+	s := openField()
+	c := s.Place(Wehrmacht, Company, Coord{5, 5})
+	if c.Linked() || c.MovesLeft() != UnlinkedMove {
+		t.Errorf("linked %v, moves %d", c.Linked(), c.MovesLeft())
+	}
+}
+
+func TestStaffMoves(t *testing.T) {
+	s := openField()
+	staff := s.Place(Wehrmacht, Battalion, Coord{5, 5})
+	if staff.MovesLeft() != 2 {
+		t.Errorf("staff moves %d, want 2", staff.MovesLeft())
+	}
+}
+
+func TestEngagementBringsNeighbors(t *testing.T) {
+	s := openField()
+	target := Coord{10, 8}
+	d := s.Place(SovietUnion, Company, target)
+	n := target.Neighbors()
+	u := s.Place(Wehrmacht, Company, n[0])
+	s.Place(Wehrmacht, Company, n[1])
+	spent := s.Place(Wehrmacht, Company, n[2])
+	spent.Spent = true
+	s.Place(Wehrmacht, Battalion, Coord{2, 2})
+	s.Place(SovietUnion, Company, n[3])
+	s.Place(SovietUnion, Company, n[4])
+	s.Place(SovietUnion, Company, Coord{20, 2})
+
+	attackers, defenders := s.Engagement(u, target)
+	if len(attackers) != 2 {
+		t.Errorf("%d attackers, want 2", len(attackers))
+	}
+	if len(defenders) != 3 || defenders[0] != d {
+		t.Errorf("%d defenders, want 3 led by the target", len(defenders))
+	}
+}
+
+func TestAllAttackersAreSpent(t *testing.T) {
+	s := openField()
+	target := Coord{10, 8}
+	s.Place(SovietUnion, Company, target)
+	n := target.Neighbors()
+	a := s.Place(Wehrmacht, Company, n[0])
+	b := s.Place(Wehrmacht, Company, n[1])
+	if _, err := s.Attack(a, target); err != nil {
+		t.Fatal(err)
+	}
+	if a.Strength() > 0 && !a.Spent || b.Strength() > 0 && !b.Spent {
+		t.Error("attacker can still act")
+	}
+}
+
+func TestScaledStrength(t *testing.T) {
+	cases := []struct {
+		current int
+		share   float64
+		want    int
+	}{{3, 1, 3}, {3, 0.98, 3}, {3, 0.5, 2}, {3, 0.1, 1}, {2, 0.4, 1}, {3, 0, 0}, {0, 1, 0}}
+	for _, c := range cases {
+		if got := ScaledStrength(c.current, c.share); got != c.want {
+			t.Errorf("ScaledStrength(%d, %.2f) = %d, want %d", c.current, c.share, got, c.want)
+		}
+	}
+}
+
+func TestFieldResultVictoryPushesTheDefenderBack(t *testing.T) {
+	s := openField()
+	u := linked(s, Wehrmacht, Coord{5, 5})
+	target := Coord{7, 5}
+	d := s.Place(SovietUnion, Company, target)
+	res := &FieldResult{Outcome: AttackerWins, Remaining: map[*Element]float64{u.Element: 0.7, d.Element: 0.5}}
+	r, err := s.ApplyFieldResult(u, target, res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Strength() != 2 || d.Strength() != 1 {
+		t.Fatalf("strengths %d and %d", u.Strength(), d.Strength())
+	}
+	if u.Pos != target {
+		t.Errorf("attacker at %v", u.Pos)
+	}
+	if d.Pos == target || Distance(d.Pos, target) != 1 {
+		t.Errorf("defender at %v", d.Pos)
+	}
+	if r.AttackerLoss != 1 || r.DefenderLoss != 1 || len(s.Reports) != 1 {
+		t.Errorf("report %+v", r)
+	}
+	if u.MovesLeft() != 0 {
+		t.Errorf("moves left %d", u.MovesLeft())
+	}
+}
+
+func TestFieldResultDefeatLeavesTheHex(t *testing.T) {
+	s := openField()
+	u := linked(s, Wehrmacht, Coord{5, 5})
+	target := Coord{7, 5}
+	d := s.Place(SovietUnion, Company, target)
+	res := &FieldResult{Outcome: DefenderWins, Remaining: map[*Element]float64{u.Element: 0, d.Element: 1}}
+	r, err := s.ApplyFieldResult(u, target, res)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !r.AttackerDestroyed || u.Element.Token != nil {
+		t.Errorf("attacker survived: %+v", r)
+	}
+	if d.Pos != target || d.Strength() != 2 {
+		t.Errorf("defender %v at %d", d.Pos, d.Strength())
+	}
+}
+
+func TestFieldResultCanKillAStaff(t *testing.T) {
+	s := openField()
+	u := linked(s, Wehrmacht, Coord{5, 5})
+	staff := u.Staff()
+	d := s.Place(SovietUnion, Company, Coord{7, 5})
+	res := &FieldResult{Outcome: Draw, Remaining: map[*Element]float64{u.Element: 1, d.Element: 1, staff.Element: 0}}
+	if _, err := s.ApplyFieldResult(u, d.Pos, res); err != nil {
+		t.Fatal(err)
+	}
+	if staff.Element.Token != nil || u.Linked() {
+		t.Error("staff survived its loss")
+	}
+}
+
+func TestLeftOutCompanyTakesTheSideAverage(t *testing.T) {
+	s := openField()
+	target := Coord{10, 8}
+	d := s.Place(SovietUnion, Company, target)
+	n := target.Neighbors()
+	a := s.Place(Wehrmacht, Company, n[0])
+	b := s.Place(Wehrmacht, Company, n[1])
+	res := &FieldResult{Outcome: Draw, Remaining: map[*Element]float64{a.Element: 0.4, d.Element: 1}}
+	if _, err := s.ApplyFieldResult(a, target, res); err != nil {
+		t.Fatal(err)
+	}
+	if a.Strength() != 1 || b.Strength() != 1 {
+		t.Errorf("strengths %d and %d", a.Strength(), b.Strength())
+	}
+}
+
+func TestBattleOutcomes(t *testing.T) {
+	cases := []struct {
+		outcome      Outcome
+		attackerLoss int
+		defenderLoss int
+		defenderDead bool
+	}{
+		{AttackerWins, 1, 2, true},
+		{Draw, 1, 1, false},
+		{DefenderWins, 2, 1, false},
+	}
+	for _, c := range cases {
+		s := openField()
+		u := linked(s, Wehrmacht, Coord{5, 5})
+		d := s.Place(SovietUnion, Company, Coord{7, 5})
+		r, err := s.ResolveBattle(u, d.Pos, c.outcome)
+		if err != nil {
 			t.Fatal(err)
 		}
-	}
-	if err := s.CanDetach(children[3]); err == nil {
-		t.Error("detached the last company")
-	}
-}
-
-func TestEnemyUnitsCantBeDetached(t *testing.T) {
-	s := openField()
-	e := s.Place(Sowjetunion, Bataillon, Coord{5, 5})
-	if err := s.CanDetach(firstCompany(e)); err == nil {
-		t.Error("detached an enemy company")
-	}
-}
-
-func TestReattach(t *testing.T) {
-	s := openField()
-	u := s.Place(Wehrmacht, Bataillon, Coord{5, 5})
-	c := firstCompany(u)
-	k, err := s.Detach(c, Coord{6, 5})
-	if err != nil {
-		t.Fatal(err)
-	}
-	setStrength(k, 2)
-	k.Pos = Coord{9, 5}
-	if _, err := s.Reattach(k); err == nil {
-		t.Error("reattached from afar")
-	}
-	k.Pos = Coord{6, 5}
-	got, err := s.Reattach(k)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != u {
-		t.Errorf("rejoined %v", got)
-	}
-	if s.UnitAt(Coord{6, 5}) != nil {
-		t.Error("detachment still on the map")
-	}
-	if c.Detached() {
-		t.Error("company still marked as detached")
-	}
-	if u.Strength() != 11 {
-		t.Errorf("strength %d, want 11: the loss must stay", u.Strength())
-	}
-}
-
-func TestLossesStayWithTheHitUnit(t *testing.T) {
-	s := openField()
-	u := s.Place(Wehrmacht, Bataillon, Coord{5, 5})
-	c := firstCompany(u)
-	k, err := s.Detach(c, Coord{6, 5})
-	if err != nil {
-		t.Fatal(err)
-	}
-	u.takeLoss(4)
-	if k.Strength() != c.Full {
-		t.Errorf("detachment lost strength with its parent: %d", k.Strength())
-	}
-	if u.Strength() != 5 {
-		t.Errorf("parent strength %d, want 5", u.Strength())
-	}
-	for _, x := range u.Element.companies(true) {
-		if x.Current < 1 {
-			t.Errorf("loss not spread evenly: %s at %d", x.Short, x.Current)
+		if r.AttackerLoss != c.attackerLoss || r.DefenderLoss != c.defenderLoss {
+			t.Errorf("%v: losses %d and %d, want %d and %d", c.outcome, r.AttackerLoss, r.DefenderLoss, c.attackerLoss, c.defenderLoss)
 		}
-	}
-}
-
-func TestDetachmentSurvivesItsParent(t *testing.T) {
-	s := openField()
-	u := s.Place(Wehrmacht, Bataillon, Coord{5, 5})
-	k, err := s.Detach(firstCompany(u), Coord{6, 5})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.remove(u)
-	if s.UnitAt(Coord{6, 5}) != k {
-		t.Fatal("detachment left the map with its parent")
-	}
-	if k.Element.Parent != u.Element {
-		t.Error("detachment lost its membership")
-	}
-	if _, err := s.CanReattach(k); err == nil {
-		t.Error("reattached to a destroyed battalion")
-	}
-}
-
-func TestBattalionLeavesDivision(t *testing.T) {
-	s := openField()
-	d := s.Place(Wehrmacht, Division, Coord{10, 8})
-	b := d.Element.Children[0].Children[0]
-	u, err := s.Detach(b, Coord{11, 8})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if u.Kind != Bataillon || u.Strength() != 12 || d.Strength() != 96 {
-		t.Fatalf("battalion %d, division %d", u.Strength(), d.Strength())
-	}
-	k, err := s.Detach(u.Element.Children[0], Coord{12, 8})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if k.Element.Root() != d.Element {
-		t.Error("company lost its division")
-	}
-	if len(d.Element.Tokens()) != 3 {
-		t.Errorf("division has %d tokens, want 3", len(d.Element.Tokens()))
-	}
-}
-
-func TestCompanyRejoinsDivisionWhenBattalionIsGone(t *testing.T) {
-	s := openField()
-	d := s.Place(Wehrmacht, Division, Coord{10, 8})
-	b, err := s.Detach(d.Element.Children[0].Children[0], Coord{11, 8})
-	if err != nil {
-		t.Fatal(err)
-	}
-	k, err := s.Detach(b.Element.Children[0], Coord{10, 9})
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.remove(b)
-	if got, err := s.CanReattach(k); err != nil || got != d {
-		t.Fatalf("reattach target %v, %v", got, err)
+		if r.DefenderDestroyed != c.defenderDead {
+			t.Errorf("%v: defender destroyed %v", c.outcome, r.DefenderDestroyed)
+		}
+		if c.defenderDead && u.Pos != (Coord{7, 5}) {
+			t.Errorf("%v: attacker at %v", c.outcome, u.Pos)
+		}
+		if u.MovesLeft() != 0 || len(s.Reports) != 1 {
+			t.Errorf("%v: moves %d, reports %d", c.outcome, u.MovesLeft(), len(s.Reports))
+		}
 	}
 }

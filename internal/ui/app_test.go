@@ -1,9 +1,13 @@
 package ui
 
 import (
+	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/xetra11/TotalKrieg/internal/game"
+	"github.com/xetra11/TotalKrieg/internal/mission"
 )
 
 func newApp(t *testing.T, f game.Faction) *App {
@@ -60,8 +64,8 @@ func TestMenuStartsChosenFaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clickRect(a, factionButton(game.Sowjetunion))
-	if a.st == nil || a.st.First != game.Sowjetunion {
+	clickRect(a, factionButton(game.SovietUnion))
+	if a.st == nil || a.st.First != game.SovietUnion {
 		t.Fatalf("state = %+v", a.st)
 	}
 }
@@ -72,30 +76,29 @@ func TestPlayerTurnByClicks(t *testing.T) {
 
 	var city *game.Object
 	for _, o := range st.Objects {
-		if o.Owner == game.Wehrmacht && o.Kind == game.Stadt {
+		if o.Owner == game.Wehrmacht && o.Kind == game.City {
 			city = o
 		}
 	}
 
-	// Move the garrison out, then raise a company in the same turn.
-	blocker := st.UnitAt(city.Pos)
+	// Move the staff out, then raise a company in the same turn.
+	staff := st.UnitAt(city.Pos)
 	clickHexAt(a, city.Pos)
-	if a.selUnit != blocker || len(a.reach) == 0 {
-		t.Fatal("garrison not selected for a move")
+	if a.selUnit != staff || len(a.reach) == 0 {
+		t.Fatal("staff not selected for a move")
 	}
 	var to game.Coord
+	moved := 0
 	for c, d := range a.reach {
-		if d == 1 {
-			to = c
-			break
-		}
+		to, moved = c, d
+		break
 	}
 	clickHexAt(a, to)
-	if blocker.Pos != to {
-		t.Fatalf("unit did not move: %v, message %q", blocker.Pos, a.message)
+	if staff.Pos != to {
+		t.Fatalf("staff did not move: %v, message %q", staff.Pos, a.message)
 	}
-	if blocker.MovesLeft != 1 || a.selUnit != blocker {
-		t.Errorf("after one field: moves %d, selected %v", blocker.MovesLeft, a.selUnit)
+	if staff.MovesLeft() != 2-moved || a.selUnit != staff {
+		t.Errorf("after %d fields: moves %d, selected %v", moved, staff.MovesLeft(), a.selUnit)
 	}
 
 	a.cancel()
@@ -105,7 +108,7 @@ func TestPlayerTurnByClicks(t *testing.T) {
 	}
 	clickRect(a, recruitButton(0))
 	u := st.UnitAt(city.Pos)
-	if u == nil || u.Kind != game.Kompanie {
+	if u == nil || u.Kind != game.Company {
 		t.Fatalf("no company raised, message %q", a.message)
 	}
 	if st.Stocks[game.Wehrmacht].Manpower != 2 {
@@ -113,7 +116,7 @@ func TestPlayerTurnByClicks(t *testing.T) {
 	}
 
 	clickRect(a, nextButton())
-	if st.Active != game.Sowjetunion {
+	if st.Active != game.SovietUnion {
 		t.Fatalf("active = %v", st.Active)
 	}
 	for i := 0; i < aiDelayFrames; i++ {
@@ -124,13 +127,18 @@ func TestPlayerTurnByClicks(t *testing.T) {
 	}
 }
 
-// startAttack selects a company and clicks an enemy two fields away.
+// startAttack selects a linked company and clicks an enemy two fields away.
 func startAttack(t *testing.T, a *App) (*game.Unit, *game.Unit) {
 	t.Helper()
 	st := a.st
 	clearBoard(a)
-	u := st.Place(game.Wehrmacht, game.Kompanie, game.Coord{Col: 5, Row: 5})
-	e := st.Place(game.Sowjetunion, game.Kompanie, game.Coord{Col: 7, Row: 5})
+	staff := st.Place(game.Wehrmacht, game.Battalion, game.Coord{Col: 5, Row: 7})
+	for _, c := range staff.Element.Children[1:] {
+		c.Token.Pos = game.Coord{Col: c.Token.Pos.Col - 4, Row: c.Token.Pos.Row}
+	}
+	u := staff.Element.Children[0].Token
+	u.Pos = game.Coord{Col: 5, Row: 5}
+	e := st.Place(game.SovietUnion, game.Company, game.Coord{Col: 7, Row: 5})
 	clickHexAt(a, u.Pos)
 	clickHexAt(a, e.Pos)
 	if a.attack == nil || a.attack.unit != u || a.attack.target != e.Pos {
@@ -152,8 +160,21 @@ func TestMoveOntoEnemyOpensPromptAndAutoResolves(t *testing.T) {
 	if len(a.st.Reports) != 1 {
 		t.Fatalf("no fight, message %q", a.message)
 	}
-	if u.MovesLeft != 0 {
-		t.Errorf("moves left %d", u.MovesLeft)
+	if u.MovesLeft() != 0 {
+		t.Errorf("moves left %d", u.MovesLeft())
+	}
+}
+
+func TestStaffCantStartAnAttack(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	clearBoard(a)
+	staff := a.st.Place(game.Wehrmacht, game.Battalion, game.Coord{Col: 5, Row: 5})
+	e := a.st.Place(game.SovietUnion, game.Company, game.Coord{Col: 5, Row: 9})
+	staff.Pos = game.Coord{Col: 5, Row: 8}
+	clickHexAt(a, staff.Pos)
+	clickHexAt(a, e.Pos)
+	if a.attack != nil {
+		t.Error("staff opened an attack")
 	}
 }
 
@@ -165,8 +186,8 @@ func TestCancelledAttackChangesNothing(t *testing.T) {
 	if a.attack != nil || len(a.st.Reports) != 0 {
 		t.Fatalf("attack %v, reports %d", a.attack, len(a.st.Reports))
 	}
-	if u.Pos != pos || u.MovesLeft != 3 {
-		t.Errorf("unit changed: %v, moves %d", u.Pos, u.MovesLeft)
+	if u.Pos != pos || u.MovesLeft() != 3 {
+		t.Errorf("unit changed: %v, moves %d", u.Pos, u.MovesLeft())
 	}
 }
 
@@ -178,6 +199,323 @@ func TestTacticalOptionsDoNothingYet(t *testing.T) {
 	}
 	if a.attack == nil || len(a.st.Reports) != 0 {
 		t.Fatalf("attack %v, reports %d", a.attack, len(a.st.Reports))
+	}
+}
+
+// waitForMission lets the generator goroutine finish.
+func waitForMission(t *testing.T, a *App) {
+	t.Helper()
+	for i := 0; i < 2000; i++ {
+		a.tick()
+		if a.battle == nil || a.battle.done == nil {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatal("mission never finished")
+}
+
+func TestPreviewComesBeforeTheGame(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	starts := 0
+	a.runMission = func(mission.Scenario) error {
+		starts++
+		return nil
+	}
+	startAttack(t, a)
+	clickRect(a, missionButton())
+	if a.battle == nil || a.battle.running || a.battle.done != nil {
+		t.Fatalf("no preview: %+v", a.battle)
+	}
+	if len(a.battle.own) != 2 || len(a.battle.foe) != 1 {
+		t.Errorf("mapping rows %v, %v", a.battle.own, a.battle.foe)
+	}
+
+	if starts != 0 || len(a.st.Reports) != 0 {
+		t.Fatalf("starts %d, reports %d during the preview", starts, len(a.st.Reports))
+	}
+
+	clickRect(a, backButton())
+	if a.battle != nil || a.attack == nil {
+		t.Fatalf("battle %v, attack %v", a.battle, a.attack)
+	}
+	clickRect(a, missionButton())
+	a.cancel()
+	if a.battle != nil || a.attack == nil {
+		t.Fatal("Esc did not leave the preview")
+	}
+}
+
+func TestMissionResolveByClicks(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	var got mission.Scenario
+	a.runMission = func(s mission.Scenario) error {
+		got = s
+		return nil
+	}
+	u, e := startAttack(t, a)
+	clickRect(a, missionButton())
+	clickRect(a, startMissionButton())
+	if a.battle == nil || a.battle.done == nil {
+		t.Fatal("no battle started")
+	}
+	waitForMission(t, a)
+	if !a.battle.running {
+		t.Fatal("battle not running")
+	}
+	if got.Base != "tr06" || len(got.Sides.Player.Platoons) != 5 || len(got.Sides.Enemy.Platoons) != 4 {
+		t.Fatalf("scenario %+v", got)
+	}
+	if len(a.st.Reports) != 0 {
+		t.Fatal("fight resolved before the result")
+	}
+
+	a.confirm()
+	a.cancel()
+	clickRect(a, nextButton())
+	if a.battle == nil || a.st.Active != game.Wehrmacht {
+		t.Fatal("the running battle was left")
+	}
+
+	clickRect(a, outcomeButton(0))
+	if a.battle != nil || a.attack != nil {
+		t.Fatal("dialog still open")
+	}
+	if len(a.st.Reports) != 1 || a.st.UnitAt(e.Pos) != u {
+		t.Fatalf("reports %d, on target %v", len(a.st.Reports), a.st.UnitAt(e.Pos))
+	}
+}
+
+// runningBattle starts a mission and returns once the game would be open.
+func runningBattle(t *testing.T, a *App) (*game.Unit, *game.Unit) {
+	t.Helper()
+	a.runMission = func(mission.Scenario) error { return nil }
+	u, e := startAttack(t, a)
+	clickRect(a, missionButton())
+	clickRect(a, startMissionButton())
+	waitForMission(t, a)
+	return u, e
+}
+
+func letResultPoll(a *App) {
+	for i := 0; i < resultCheckFrames; i++ {
+		a.tick()
+	}
+}
+
+func TestResultComesInByItself(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	var report *game.FieldResult
+	a.readResult = func(mission.Scenario, time.Time) (*game.FieldResult, error) {
+		return report, nil
+	}
+	u, e := runningBattle(t, a)
+	target := e.Pos
+
+	letResultPoll(a)
+	if a.battle.result != nil {
+		t.Fatal("result before the battle ended")
+	}
+	report = &game.FieldResult{
+		Text:      "MINOR VICTORY",
+		Outcome:   game.AttackerWins,
+		Remaining: map[*game.Element]float64{u.Element: 0.7, e.Element: 0.5},
+	}
+	letResultPoll(a)
+	if a.battle.result != report {
+		t.Fatal("result not picked up")
+	}
+	s := a.battle.sides
+	rows := lossRows(s.Player, s.PlayerStaffs, report)
+	if len(rows) != 2 || !strings.Contains(rows[0].text, "3 → 2") {
+		t.Errorf("rows %v", rows)
+	}
+	if len(a.st.Reports) != 0 {
+		t.Fatal("result booked before the player saw it")
+	}
+
+	clickRect(a, applyResultButton())
+	if a.battle != nil || a.attack != nil {
+		t.Fatal("dialog still open")
+	}
+	if u.Strength() != 2 || e.Strength() != 1 || a.st.UnitAt(target) != u {
+		t.Fatalf("strengths %d and %d, on target %v", u.Strength(), e.Strength(), a.st.UnitAt(target))
+	}
+	if len(a.st.Reports) != 1 {
+		t.Fatalf("%d reports", len(a.st.Reports))
+	}
+}
+
+func TestLossRowsListPlatoons(t *testing.T) {
+	c := &game.Element{Kind: game.Company, Short: "1./514", Callsign: "Fuchs", Current: 3}
+	left := &game.Element{Kind: game.Company, Short: "2./514", Callsign: "Dachs", Current: 3}
+	staff := &game.Element{Kind: game.Battalion, Short: "I./514"}
+	res := &game.FieldResult{
+		Remaining: map[*game.Element]float64{c: 0.5, staff: 0},
+		Platoons: []game.PlatoonLoss{
+			{Owner: c, Name: "1st Rifle Platoon", Squads: 6, Lost: 6},
+			{Owner: c, Name: "2nd Rifle Platoon", Squads: 6, Lost: 2, Condition: 0.9},
+			{Owner: c, Name: "Company HQ", Squads: 5, Condition: 1},
+			{Owner: staff, Name: "Battalion HQ", Squads: 3, Lost: 3},
+		},
+	}
+	var got []string
+	for _, r := range lossRows([]*game.Element{c, left}, []*game.Element{staff}, res) {
+		got = append(got, r.text)
+	}
+	want := []string{
+		"1./514 Fuchs: strength 3 → 2",
+		"1st Rifle Platoon: all 6 squads lost",
+		"2nd Rifle Platoon: 2 of 6 squads lost, the rest at 90% condition",
+		"Company HQ: no squad lost, condition 100%",
+		"2./514 Dachs: strength 3 → 2",
+		"not in the mission, losses as the rest of its side",
+		"I./514: staff lost",
+		"Battalion HQ: all 3 squads lost",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Errorf("rows\n%s", strings.Join(got, "\n"))
+	}
+	lost, squads := sideLoss([]*game.Element{c, left, staff}, res)
+	if lost != 11 || squads != 20 {
+		t.Errorf("side lost %d of %d", lost, squads)
+	}
+}
+
+func TestLostAttackLetsThePlayerFlee(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	a.readResult = func(mission.Scenario, time.Time) (*game.FieldResult, error) {
+		return nil, nil
+	}
+	u, e := runningBattle(t, a)
+	from := a.st.AttackTargets(u)[e.Pos]
+	target := e.Pos
+	clickRect(a, outcomeButton(2))
+
+	r := a.st.NextRout()
+	if r == nil || r.Unit != u || a.selUnit != u || u.Pos != from {
+		t.Fatalf("no rout: %+v, unit at %v", r, u.Pos)
+	}
+	if len(a.reach) != 3 {
+		t.Fatalf("%d options", len(a.reach))
+	}
+
+	// Nothing else happens until the unit fled.
+	a.confirm()
+	a.cancel()
+	a.toggleOrg()
+	clickRect(a, nextButton())
+	clickHexAt(a, target)
+	if a.st.Active != game.Wehrmacht || a.showOrg || u.Pos != from || a.st.NextRout() == nil {
+		t.Fatalf("rout left: active %v, unit at %v", a.st.Active, u.Pos)
+	}
+
+	var to game.Coord
+	for c := range a.reach {
+		to = c
+		break
+	}
+	clickHexAt(a, to)
+	if u.Pos != to || a.st.NextRout() != nil {
+		t.Fatalf("unit at %v, want %v", u.Pos, to)
+	}
+	if e.Pos != target {
+		t.Errorf("victorious defender moved to %v", e.Pos)
+	}
+}
+
+func TestPlayerPicksTheHexAfterTheAITurn(t *testing.T) {
+	// The fight is rolled, so look for a seed where the company survives it.
+	for seed := uint64(1); seed < 100; seed++ {
+		f := game.Wehrmacht
+		a, err := New(Options{Seed: seed, Faction: &f})
+		if err != nil {
+			t.Fatal(err)
+		}
+		clearBoard(a)
+		st := a.st
+		hex := game.Coord{Col: 5, Row: 5}
+		enemyHex := game.Coord{Col: 6, Row: 5}
+		own := st.Place(game.Wehrmacht, game.Company, hex)
+		foe := st.Place(game.SovietUnion, game.Company, enemyHex)
+		foe.Element.Current = 6
+		clickRect(a, nextButton())
+		for i := 0; i < aiDelayFrames; i++ {
+			a.tick()
+		}
+		if st.NextRout() == nil {
+			continue
+		}
+		if st.Active != game.Wehrmacht || own.Pos != hex || foe.Pos != enemyHex || a.selUnit != own {
+			t.Fatalf("active %v, own %v, foe %v, selected %v", st.Active, own.Pos, foe.Pos, a.selUnit)
+		}
+		var to game.Coord
+		for c := range a.reach {
+			to = c
+			break
+		}
+		clickHexAt(a, to)
+		if own.Pos != to || foe.Pos != hex {
+			t.Fatalf("own %v, foe %v", own.Pos, foe.Pos)
+		}
+		return
+	}
+	t.Fatal("no seed left a beaten company alive")
+}
+
+func TestUnreadableResultLeavesManualEntry(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	a.readResult = func(mission.Scenario, time.Time) (*game.FieldResult, error) {
+		return nil, errors.New("no result in the log")
+	}
+	runningBattle(t, a)
+	letResultPoll(a)
+	if !strings.Contains(a.battle.failure, "no result") || a.battle.result != nil {
+		t.Fatalf("battle %+v", a.battle)
+	}
+	clickRect(a, outcomeButton(1))
+	if a.battle != nil || len(a.st.Reports) != 1 {
+		t.Fatalf("battle %v, reports %d", a.battle, len(a.st.Reports))
+	}
+}
+
+func TestMissionFailureReturnsToThePreview(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	calls := 0
+	a.runMission = func(mission.Scenario) error {
+		calls++
+		if calls == 1 {
+			return errors.New("error: Mius-Front is still running")
+		}
+		return nil
+	}
+	startAttack(t, a)
+	clickRect(a, missionButton())
+	clickRect(a, startMissionButton())
+	waitForMission(t, a)
+	if a.battle == nil || a.battle.running {
+		t.Fatalf("battle %+v", a.battle)
+	}
+	if !strings.Contains(a.battle.failure, "still running") {
+		t.Errorf("failure %q", a.battle.failure)
+	}
+
+	clickRect(a, startMissionButton())
+	waitForMission(t, a)
+	if !a.battle.running || a.battle.failure != "" {
+		t.Errorf("second start: %+v", a.battle)
+	}
+}
+
+func TestMissionButtonNeedsTheTools(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	if a.runMission != nil {
+		t.Fatal("tools found without a path")
+	}
+	startAttack(t, a)
+	clickRect(a, missionButton())
+	if a.battle != nil {
+		t.Error("mission started without the tools")
 	}
 }
 
@@ -203,103 +541,41 @@ func TestPromptBlocksTheMap(t *testing.T) {
 	}
 }
 
-// openBattalion leaves one selected battalion on an empty map.
-func openBattalion(t *testing.T, a *App) *game.Unit {
-	t.Helper()
+func TestOrgWindowListsBattalionAndSelectsCompany(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
 	clearBoard(a)
-	u := a.st.Place(game.Wehrmacht, game.Bataillon, game.Coord{Col: 10, Row: 8})
-	clickHexAt(a, u.Pos)
-	if a.selUnit != u {
-		t.Fatal("battalion not selected")
-	}
-	return u
-}
-
-func TestOrgRowsCoverEveryElement(t *testing.T) {
-	a := newApp(t, game.Wehrmacht)
-	st := a.st
-	st.Units = nil
-	for _, f := range []game.Faction{game.Wehrmacht, game.Sowjetunion} {
-		d := st.Place(f, game.Division, game.Coord{Col: int(f), Row: 0})
-		rows := orgRows(d.Element)
-		want := map[game.Faction]int{game.Wehrmacht: 3 + 9 + 36, game.Sowjetunion: 3 + 9 + 45}[f]
-		if len(rows) != want {
-			t.Errorf("%v: %d rows, want %d", f, len(rows), want)
-		}
-		for _, r := range rows {
-			if r.r.y+r.r.h > orgPanel.y+orgPanel.h || r.r.x+r.r.w > orgPanel.x+orgPanel.w {
-				t.Fatalf("%v: row %s leaves the window", f, r.e.Short)
-			}
-		}
-	}
-}
-
-func detachRow(u *game.Unit, e *game.Element) orgRow {
-	for _, r := range orgRows(u.Element.Root()) {
-		if r.e == e {
-			return r
-		}
-	}
-	return orgRow{}
-}
-
-func TestDetachAndReattachByClicks(t *testing.T) {
-	a := newApp(t, game.Wehrmacht)
-	st := a.st
-	u := openBattalion(t, a)
-	company := u.Element.Children[0]
-
+	staff := a.st.Place(game.Wehrmacht, game.Battalion, game.Coord{Col: 10, Row: 8})
+	clickHexAt(a, staff.Pos)
 	clickRect(a, orgButton())
 	if !a.showOrg {
 		t.Fatal("order of battle did not open")
 	}
-	clickRect(a, detachRow(u, company).detachButton())
-	if a.pendingDetach != company || a.showOrg {
-		t.Fatalf("detach not pending, message %q", a.message)
+	rows := orgRows(staff.Element)
+	if len(rows) != 5 {
+		t.Fatalf("%d rows, want staff and 4 companies", len(rows))
 	}
-	to := game.Coord{Col: 11, Row: 8}
-	clickHexAt(a, to)
-	k := st.UnitAt(to)
-	if k == nil || k.Element != company {
-		t.Fatalf("company not placed, message %q", a.message)
+	for _, r := range rows {
+		if r.r.y+r.r.h > orgPanel.y+orgPanel.h {
+			t.Fatalf("row %s leaves the window", r.e.Short)
+		}
 	}
-	if a.selUnit != k || len(a.reach) == 0 {
-		t.Fatal("detachment not selected for its move")
-	}
-
-	clickRect(a, reattachButton())
-	if st.UnitAt(to) != nil || a.selUnit != u {
-		t.Fatalf("company did not rejoin, message %q", a.message)
-	}
-	if u.Strength() != 12 {
-		t.Errorf("strength %d", u.Strength())
-	}
-}
-
-func TestDetachCancelsOnOtherHex(t *testing.T) {
-	a := newApp(t, game.Wehrmacht)
-	u := openBattalion(t, a)
-	clickRect(a, orgButton())
-	clickRect(a, detachRow(u, u.Element.Children[0]).detachButton())
-	clickHexAt(a, game.Coord{Col: 2, Row: 2})
-	if a.pendingDetach != nil || len(a.st.Units) != 1 {
-		t.Fatalf("pending %v, units %d", a.pendingDetach, len(a.st.Units))
-	}
-}
-
-func TestDetachedRowSelectsItsUnit(t *testing.T) {
-	a := newApp(t, game.Wehrmacht)
-	st := a.st
-	u := openBattalion(t, a)
-	k, err := st.Detach(u.Element.Children[0], game.Coord{Col: 11, Row: 8})
-	if err != nil {
-		t.Fatal(err)
-	}
-	a.selectUnit(u)
-	a.openOrg()
-	clickRect(a, detachRow(u, k.Element).r)
-	if a.selUnit != k || a.showOrg {
+	clickRect(a, rows[2].r)
+	if a.showOrg || a.selUnit != rows[2].e.Token {
 		t.Fatalf("selected %v, window open %v", a.selUnit, a.showOrg)
+	}
+}
+
+func TestMembershipShowsTheLink(t *testing.T) {
+	a := newApp(t, game.Wehrmacht)
+	clearBoard(a)
+	staff := a.st.Place(game.Wehrmacht, game.Battalion, game.Coord{Col: 5, Row: 8})
+	c := staff.Element.Children[0].Token
+	if got := membership(c); !strings.Contains(got, "linked") {
+		t.Errorf("membership %q", got)
+	}
+	c.Pos = game.Coord{Col: 20, Row: 8}
+	if got := membership(c); !strings.Contains(got, "no staff link") {
+		t.Errorf("membership %q", got)
 	}
 }
 
@@ -308,17 +584,33 @@ func TestNoActionsDuringAITurn(t *testing.T) {
 	st := a.st
 	st.EndTurn()
 	clickRect(a, nextButton())
-	if st.Active != game.Sowjetunion {
+	if st.Active != game.SovietUnion {
 		t.Errorf("turn passed during the AI turn: %v", st.Active)
+	}
+	for _, u := range st.Units {
+		if u.Kind == game.Battalion && u.Faction == game.SovietUnion {
+			st.Units = removeUnit(st.Units, u)
+			break
+		}
 	}
 	a.selCity = nil
 	for _, o := range st.Objects {
-		if o.Owner == game.Sowjetunion && o.Kind.IsCity() {
+		if o.Owner == game.SovietUnion && o.Kind.IsCity() {
 			clickHexAt(a, o.Pos)
 			clickRect(a, recruitButton(0))
 		}
 	}
-	if st.Stocks[game.Sowjetunion].Manpower != 3 {
-		t.Errorf("player spent the AI's manpower: %d", st.Stocks[game.Sowjetunion].Manpower)
+	if st.Stocks[game.SovietUnion].Manpower != 3 {
+		t.Errorf("player spent the AI's manpower: %d", st.Stocks[game.SovietUnion].Manpower)
 	}
+}
+
+func removeUnit(units []*game.Unit, u *game.Unit) []*game.Unit {
+	var out []*game.Unit
+	for _, x := range units {
+		if x != u {
+			out = append(out, x)
+		}
+	}
+	return out
 }

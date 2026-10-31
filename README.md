@@ -1,48 +1,55 @@
 # TotalKrieg
 
-Rundenbasiertes Operationsspiel auf einer Hexkarte: Wehrmacht gegen Sowjetunion, Spieler gegen KI.
-Prototyp in Go mit [Ebitengine](https://ebitengine.org). Die Regeln stehen in [docs/GDD.md](docs/GDD.md).
+Turn-based operational game on a hex map: Wehrmacht against the Soviet Union, player against AI.
+Prototype in Go with [Ebitengine](https://ebitengine.org). The rules are in [docs/GDD.md](docs/GDD.md).
 
-## Starten
+## Running
 
-Voraussetzung ist Go 1.26 oder neuer.
+Requires Go 1.26 or newer.
 
 ```bash
 go run ./cmd/totalkrieg
 ```
 
-Optionen:
+Options:
 
-| Option | Wirkung |
+| Option | Effect |
 | --- | --- |
-| `-seed 7` | Spielt eine bestimmte Karte, 0 wählt zufällig |
-| `-faction wehrmacht` | Überspringt das Menü, auch `sowjetunion` |
-| `-autoplay 18` | Spielt so viele KI-Züge vor dem Start |
-| `-shot bild.png` | Schreibt ein Bild und beendet das Spiel |
+| `-seed 7` | Plays a specific map, 0 picks at random |
+| `-faction wehrmacht` | Skips the menu, also `sovietunion` |
+| `-autoplay 18` | Plays this many AI turns before the start |
+| `-shot image.png` | Writes an image and quits |
+| `-missionmaker folder` | MiusMissionMaker folder, default `../MiusMissionMaker` |
+| `-miusgame folder` | Mius-Front folder, empty uses the Steam default |
 
-## Bedienung
+## Battles in Mius-Front
 
-Im eigenen Zug handelst du in beliebiger Reihenfolge. Einkommen kommt zu Zugbeginn, Eroberungen zählen am Zugende.
+Battles in Mius-Front need MiusMissionMaker, Node.js and the installed game. The game must be closed before the start. The battle dialog first shows the battle line-up, and you start Mius-Front from there. When the battle ends, TotalKrieg reads the outcome and losses by itself, shows them per platoon and books them with "Apply result". If that fails, you enter the outcome by hand. Generated scenarios and missions land in the `missions/` folder.
 
-- **Aufstellen:** Eigene Stadt anklicken, dann rechts eine Einheit wählen.
-- **Bewegen:** Eigene Einheit anklicken, dann ein markiertes Feld. Reste der Bewegung bleiben für weitere Schritte.
-- **Angreifen:** Eigene Einheit anklicken, dann einen rot umrandeten Gegner. Ein Dialog fragt nach der Auflösung.
-- **Gliederung:** Einheit anklicken, dann **G** oder den Knopf rechts. Das Fenster zeigt den ganzen Verband mit Rufnamen und Kompanieführern.
-- **Ausgliedern:** In der Gliederung auf „Ausgliedern“ klicken, dann ein markiertes Nachbarfeld wählen.
-- **Eingliedern:** Teilverband neben den Stammverband ziehen, dann rechts auf „Eingliedern“ klicken.
-- **Enter** beendet den Zug oder bestätigt die automatische Auflösung, **Esc** bricht ab oder hebt die Auswahl auf.
+## Controls
 
-## Aufbau
+During your turn you act in any order. Income comes at the start of a turn, captures count at the end of a turn.
 
-| Pfad | Inhalt |
+- **Raise:** Click one of your cities, then choose a unit on the right.
+- **Move:** Click one of your units, then a marked hex. Leftover movement stays for further steps.
+- **Attack:** Click one of your companies, then an enemy outlined in red. A dialog asks how to resolve the battle.
+- **Flee:** When your unit is beaten, click one of the marked hexes for it to flee to.
+- **Order of battle:** Click a unit, then **G** or the button on the right. The window shows the battalion with callsigns, company leaders, positions and the counterpart in Mius-Front.
+- **Staffs:** Companies move 3 hexes only within reach of their staff, otherwise 1 hex. A red dot marks a missing link. Staffs don't attack or capture.
+- **Enter** ends the turn or confirms the automatic resolution, **Esc** cancels or clears the selection.
+
+## Structure
+
+| Path | Content |
 | --- | --- |
-| `cmd/totalkrieg` | Programmstart |
-| `internal/game` | Regeln, Kartenerzeugung und KI, ohne Grafik |
-| `internal/symbols` | Symbolsets pro Fraktion als JSON |
-| `internal/ui` | Oberfläche mit Ebitengine |
-| `concept` | Konzeptgrafik und ihre Quelle |
-| `docs` | GDD und Quellen |
-| `tools` | Export der Konzeptgrafik |
+| `cmd/totalkrieg` | Program start |
+| `internal/game` | Rules, map generation and AI, without graphics |
+| `internal/mission` | Adapter to MiusMissionMaker |
+| `internal/symbols` | Symbol sets per faction as JSON |
+| `internal/ui` | User interface with Ebitengine |
+| `concept` | Concept art and its source, in German |
+| `docs` | GDD and sources |
+| `tools` | Concept art export |
 
 ## Tests
 
@@ -50,4 +57,6 @@ Im eigenen Zug handelst du in beliebiger Reihenfolge. Einkommen kommt zu Zugbegi
 go test ./...
 ```
 
-`TestFullMatches` lässt die KI 400 Partien gegen sich selbst spielen. Mit `go test ./internal/game -run TestFullMatches -v` zeigt der Test die Siegverteilung.
+With `TK_MISSIONMAKER` set, `TestGeneratorAcceptsScenarios` builds all battle sizes with the real generator, without starting the game.
+
+`TestFullMatches` lets the AI play 400 matches against itself. With `go test ./internal/game -run TestFullMatches -v` the test shows the distribution of wins.

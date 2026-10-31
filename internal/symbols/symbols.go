@@ -8,7 +8,7 @@ import (
 	"fmt"
 )
 
-//go:embed wehrmacht.json sowjetunion.json
+//go:embed wehrmacht.json sovietunion.json
 var files embed.FS
 
 // Shape is one drawing step in symbol coordinates.

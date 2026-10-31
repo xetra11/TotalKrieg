@@ -15,13 +15,10 @@ type symbolKey struct {
 }
 
 func unitKey(k game.UnitKind) string {
-	switch k {
-	case game.Kompanie:
-		return "kompanie"
-	case game.Bataillon:
-		return "bataillon"
+	if k == game.Company {
+		return "company"
 	}
-	return "division"
+	return "battalion"
 }
 
 // symbol returns the rendered sign of a unit type, cached per scale.

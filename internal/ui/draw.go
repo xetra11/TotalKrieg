@@ -132,31 +132,31 @@ func (a *App) drawTopBar(dst *ebiten.Image) {
 	fillRect(dst, rect{0, topH - 2, screenW, 2}, colDeep)
 	a.label(dst, "TotalKrieg", 16, 9, 22, colText, true, text.AlignStart)
 	a.label(dst, st.First.String(), 16, 36, 14, colMuted, false, text.AlignStart)
-	a.label(dst, "Runde", 200, 10, 14, colMuted, false, text.AlignStart)
+	a.label(dst, "Round", 200, 10, 14, colMuted, false, text.AlignStart)
 	a.label(dst, fmt.Sprintf("%d / %d", st.Round, game.MaxRounds), 200, 28, 20, colText, true, text.AlignStart)
 
-	turn := "Du bist am Zug"
+	turn := "Your turn"
 	if !a.humanTurn() {
-		turn = "KI ist am Zug"
+		turn = "AI's turn"
 	}
 	a.label(dst, turn, 340, 20, 18, colAmber, true, text.AlignStart)
 
 	stock := st.Stocks[st.First]
 	a.label(dst, "Manpower", 900, 10, 14, colMuted, false, text.AlignStart)
 	a.label(dst, fmt.Sprint(stock.Manpower), 900, 28, 20, colText, true, text.AlignStart)
-	a.label(dst, "Ressourcen", 1010, 10, 14, colMuted, false, text.AlignStart)
+	a.label(dst, "Resources", 1010, 10, 14, colMuted, false, text.AlignStart)
 	a.label(dst, fmt.Sprint(stock.Resources), 1010, 28, 20, colText, true, text.AlignStart)
 	cities, objects := st.Holdings(st.First)
-	a.label(dst, "Besitz", 1130, 10, 14, colMuted, false, text.AlignStart)
-	a.label(dst, fmt.Sprintf("%d Städte, %d Objekte", cities, objects), 1130, 30, 15, colText, true, text.AlignStart)
+	a.label(dst, "Holdings", 1130, 10, 14, colMuted, false, text.AlignStart)
+	a.label(dst, fmt.Sprintf("%d cities, %d objects", cities, objects), 1130, 30, 15, colText, true, text.AlignStart)
 
 	b := nextButton()
 	if a.humanTurn() {
 		fillRect(dst, b, colAmber)
-		a.label(dst, "Zug beenden", b.x+b.w/2, b.y+11, 15, colDeep, true, text.AlignCenter)
+		a.label(dst, "End turn", b.x+b.w/2, b.y+11, 15, colDeep, true, text.AlignCenter)
 	} else {
 		fillRect(dst, b, colLine)
-		a.label(dst, "Bitte warten", b.x+b.w/2, b.y+11, 15, colMuted, true, text.AlignCenter)
+		a.label(dst, "Please wait", b.x+b.w/2, b.y+11, 15, colMuted, true, text.AlignCenter)
 	}
 }
 
@@ -184,7 +184,7 @@ func (a *App) renderMap(img *ebiten.Image) {
 			cx, cy := hexCenter(c)
 			pts := hexCorners(cx, cy-topH, hexSize)
 			fill := colPaperW
-			if a.controller(c) == game.Sowjetunion {
+			if a.controller(c) == game.SovietUnion {
 				fill = colPaperS
 			}
 			fillPoly(img, pts, fill)
@@ -213,14 +213,14 @@ func (a *App) renderObject(img *ebiten.Image, o *game.Object) {
 	strokePoly(img, hexCorners(cx, cy, hexSize-2.5), true, 3, factionColor(o.Owner))
 	x, y := float32(cx), float32(cy)
 	switch o.Kind {
-	case game.Hauptstadt:
+	case game.Capital:
 		fillPoly(img, starPoints(cx, cy, 15, 6.5), colInk)
-	case game.Stadt:
+	case game.City:
 		vector.FillRect(img, x-11, y-5, 9, 13, colInk, false)
 		vector.FillRect(img, x, y-10, 10, 18, colInk, false)
-	case game.Dorf:
+	case game.Village:
 		vector.FillRect(img, x-5, y-4, 10, 8, colInk, false)
-	case game.Fabrik:
+	case game.Factory:
 		fillPoly(img, [][2]float32{{x - 13, y + 9}, {x - 13, y - 3}, {x - 5, y + 2}, {x - 5, y - 3}, {x + 3, y + 2}, {x + 3, y - 12}, {x + 9, y - 12}, {x + 9, y + 9}}, colInk)
 	}
 }
@@ -261,7 +261,6 @@ func dashedLine(dst *ebiten.Image, x0, y0, x1, y1 float64, clr color.Color) {
 func (a *App) drawHighlights(dst *ebiten.Image) {
 	st := a.st
 	a.drawFormationLinks(dst)
-	a.drawDetachSpots(dst)
 	for c := range a.reach {
 		cx, cy := hexCenter(c)
 		fillPoly(dst, hexCorners(cx, cy, hexSize-1), color.RGBA{0x6b, 0x5c, 0x22, 0x50})
@@ -286,7 +285,7 @@ func (a *App) drawUnits(dst *ebiten.Image) {
 	st := a.st
 	for _, u := range st.Units {
 		cx, cy := hexCenter(u.Pos)
-		spent := u.Faction == st.First && a.humanTurn() && u.MovesLeft == 0
+		spent := u.Faction == st.First && a.humanTurn() && u.MovesLeft() == 0
 		plate := color.RGBA{0xef, 0xeb, 0xdb, 0xe6}
 		fillRect(dst, rect{cx - 22, cy - 25, 44, 46}, plate)
 		img := a.symbol(u.Faction, u.Kind, 0.56)
@@ -299,32 +298,37 @@ func (a *App) drawUnits(dst *ebiten.Image) {
 		dst.DrawImage(img, op)
 		a.label(dst, u.Short, cx, cy+8, 10, factionColor(u.Faction), true, text.AlignCenter)
 		a.label(dst, fmt.Sprint(u.Strength()), cx+20, cy-24, 11, colInk, true, text.AlignEnd)
+		if u.Kind == game.Company && !u.Linked() {
+			vector.FillCircle(dst, float32(cx+15), float32(cy-5), 5, colRed, true)
+		}
 	}
 }
 
 func (a *App) drawHint(dst *ebiten.Image) {
 	a.label(dst, a.message, 24, hintY, 18, colInk, true, text.AlignStart)
-	seed := fmt.Sprintf("Karte %d", a.st.Seed)
+	seed := fmt.Sprintf("Map %d", a.st.Seed)
 	a.label(dst, seed, 24, hintY+30, 13, colInk, false, text.AlignStart)
-	a.label(dst, "Enter: Zug beenden   G: Gliederung   Esc: abbrechen", 24, hintY+50, 13, colInk, false, text.AlignStart)
+	a.label(dst, "Enter: end turn   G: order of battle   Esc: cancel", 24, hintY+50, 13, colInk, false, text.AlignStart)
 	a.drawKey(dst)
 }
 
 func (a *App) drawKey(dst *ebiten.Image) {
 	x := 620.0
-	a.label(dst, "Hauptstadt", x+24, hintY+8, 13, colInk, false, text.AlignStart)
+	a.label(dst, "Capital", x+24, hintY+8, 13, colInk, false, text.AlignStart)
 	fillPoly(dst, starPoints(x+8, hintY+15, 10, 4.5), colInk)
-	a.label(dst, "Stadt", x+124, hintY+8, 13, colInk, false, text.AlignStart)
+	a.label(dst, "City", x+124, hintY+8, 13, colInk, false, text.AlignStart)
 	fillRect(dst, rect{x + 108, hintY + 8, 10, 14}, colInk)
-	a.label(dst, "Dorf", x+204, hintY+8, 13, colInk, false, text.AlignStart)
+	a.label(dst, "Village", x+204, hintY+8, 13, colInk, false, text.AlignStart)
 	fillRect(dst, rect{x + 188, hintY + 11, 10, 8}, colInk)
-	a.label(dst, "Fabrik", x+284, hintY+8, 13, colInk, false, text.AlignStart)
+	a.label(dst, "Factory", x+284, hintY+8, 13, colInk, false, text.AlignStart)
 	fillRect(dst, rect{x + 268, hintY + 8, 10, 14}, colInk)
 	fillRect(dst, rect{x + 268, hintY + 8, 4, 6}, colPaper)
 	fillRect(dst, rect{x, hintY + 40, 18, 12}, colBlue)
 	a.label(dst, "Wehrmacht", x+24, hintY+38, 13, colInk, false, text.AlignStart)
 	fillRect(dst, rect{x + 108, hintY + 40, 18, 12}, colRed)
-	a.label(dst, "Sowjetunion", x+132, hintY+38, 13, colInk, false, text.AlignStart)
+	a.label(dst, "Soviet Union", x+132, hintY+38, 13, colInk, false, text.AlignStart)
+	vector.FillCircle(dst, float32(x+268+5), float32(hintY+46), 5, colRed, true)
+	a.label(dst, "No staff link", x+284, hintY+38, 13, colInk, false, text.AlignStart)
 }
 
 func (a *App) drawSidebar(dst *ebiten.Image) {
@@ -340,12 +344,12 @@ func (a *App) panelTitle(dst *ebiten.Image, s string, y float64) {
 }
 
 func (a *App) drawUnitPanel(dst *ebiten.Image) {
-	a.panelTitle(dst, "Einheit", unitPanelY)
+	a.panelTitle(dst, "Unit", unitPanelY)
 	u := a.selUnit
 	x := float64(sideX + 16)
 	y := float64(unitPanelY + 40)
 	if u == nil {
-		a.wrapped(dst, "Klicke auf eine Einheit, um sie zu sehen.", x, y, sideW-32, 15, colMuted)
+		a.wrapped(dst, "Click a unit to see it.", x, y, sideW-32, 15, colMuted)
 		return
 	}
 	st := u.Stats()
@@ -358,27 +362,23 @@ func (a *App) drawUnitPanel(dst *ebiten.Image) {
 	tx := x + 110
 	a.label(dst, u.Kind.String(), tx, y, 13, colMuted, false, text.AlignStart)
 	a.wrapped(dst, u.Short, tx, y+16, 220, 18, colText)
-	a.label(dst, fmt.Sprintf("Stärke %d / %d", u.Strength(), u.FullStrength()), tx, y+42, 16, colText, true, text.AlignStart)
-	a.label(dst, fmt.Sprintf("Bewegung %d von %s", u.MovesLeft, fieldCount(st.Move)), tx, y+66, 15, colText, false, text.AlignStart)
-	if e := u.Element; e.Kind == game.Kompanie {
+	a.label(dst, fmt.Sprintf("Strength %d / %d", u.Strength(), u.FullStrength()), tx, y+42, 16, colText, true, text.AlignStart)
+	a.label(dst, fmt.Sprintf("Movement %d of %s", u.MovesLeft(), fieldCount(u.Allowance())), tx, y+66, 15, colText, false, text.AlignStart)
+	if e := u.Element; e.Kind == game.Company {
 		a.label(dst, e.Callsign, tx, y+90, 15, colAmber, true, text.AlignStart)
 		a.label(dst, e.Leader, tx+90, y+90, 14, colText, false, text.AlignStart)
 	}
 	a.label(dst, u.Name, x, y+122, 14, colText, false, text.AlignStart)
-	a.label(dst, "Historische Sollstärke: "+st.Men+" Mann", x, y+142, 14, colMuted, false, text.AlignStart)
-	a.label(dst, "Gehört zu: "+membership(u.Element), x, y+162, 14, colMuted, false, text.AlignStart)
-	a.drawButton(dst, orgButton(), "Gliederung (G)", true)
-	if u.Element.Detached() {
-		_, err := a.st.CanReattach(u)
-		a.drawButton(dst, reattachButton(), "Eingliedern", a.humanTurn() && err == nil)
-	}
+	a.label(dst, "Historical establishment: "+st.Men+" men", x, y+142, 14, colMuted, false, text.AlignStart)
+	a.label(dst, "Formation: "+membership(u), x, y+162, 14, colMuted, false, text.AlignStart)
+	a.drawButton(dst, orgButton(), "Order of battle (G)", true)
 }
 
 func fieldCount(n int) string {
 	if n == 1 {
-		return "1 Feld"
+		return "1 hex"
 	}
-	return fmt.Sprintf("%d Felder", n)
+	return fmt.Sprintf("%d hexes", n)
 }
 
 // drawFlagLabel writes the designation into a Soviet flag, as the manual shows.
@@ -393,11 +393,11 @@ func (a *App) drawFlagLabel(dst *ebiten.Image, u *game.Unit, x, y, scale float64
 
 func (a *App) drawCityPanel(dst *ebiten.Image) {
 	fillRect(dst, rect{sideX + 2, cityPanelY, sideW - 2, 1}, colLine)
-	a.panelTitle(dst, "Stadt", cityPanelY)
+	a.panelTitle(dst, "City", cityPanelY)
 	o := a.selCity
 	x := float64(sideX + 16)
 	if o == nil {
-		a.wrapped(dst, "Eigene Stadt anklicken, um Einheiten aufzustellen.", x, cityPanelY+40, sideW-32, 15, colMuted)
+		a.wrapped(dst, "Click one of your cities to raise units.", x, cityPanelY+40, sideW-32, 15, colMuted)
 		return
 	}
 	a.label(dst, fmt.Sprintf("%s, %s (%s)", o.Name, o.Kind, o.Owner), x, cityPanelY+38, 15, colText, true, text.AlignStart)
@@ -412,24 +412,31 @@ func (a *App) drawCityPanel(dst *ebiten.Image) {
 		fillRect(dst, r, bg)
 		strokeRect(dst, r, 1, colLine)
 		a.label(dst, k.String(), r.x+12, r.y+6, 16, fg, true, text.AlignStart)
-		a.label(dst, fmt.Sprintf("Stärke %d, %s", stats.Strength, fieldCount(stats.Move)), r.x+12, r.y+26, 13, fg, false, text.AlignStart)
+		a.label(dst, recruitText(a.st.First, k), r.x+12, r.y+26, 13, fg, false, text.AlignStart)
 		a.label(dst, fmt.Sprintf("%d Manpower", stats.Cost), r.x+r.w-12, r.y+14, 15, fg, true, text.AlignEnd)
 	}
 }
 
+func recruitText(f game.Faction, k game.UnitKind) string {
+	if k == game.Battalion {
+		return fmt.Sprintf("Staff and %d companies", game.BattalionSize(f))
+	}
+	return fmt.Sprintf("Independent, strength %d, %s", game.Stats(f, k).Strength, fieldCount(game.UnlinkedMove))
+}
+
 func (a *App) drawLog(dst *ebiten.Image) {
 	fillRect(dst, rect{sideX + 2, logPanelY, sideW - 2, 1}, colLine)
-	a.panelTitle(dst, "Kampfbericht", logPanelY)
+	a.panelTitle(dst, "Combat log", logPanelY)
 	x := float64(sideX + 16)
 	y := float64(logPanelY + 40)
 	reports := a.st.Reports
 	if len(reports) == 0 {
-		a.label(dst, "Noch keine Gefechte.", x, y, 15, colMuted, false, text.AlignStart)
+		a.label(dst, "No battles yet.", x, y, 15, colMuted, false, text.AlignStart)
 		return
 	}
 	for i := len(reports) - 1; i >= 0 && y < screenH-44; i-- {
 		r := reports[i]
-		a.label(dst, fmt.Sprintf("Runde %d: %s gegen %s", r.Round, r.Attacker, r.Defender), x, y, 14, factionText(r.AttackerFaction), true, text.AlignStart)
+		a.label(dst, fmt.Sprintf("Round %d: %s vs. %s", r.Round, r.Attacker, r.Defender), x, y, 14, factionText(r.AttackerFaction), true, text.AlignStart)
 		a.label(dst, lossText(r), x, y+18, 13, colMuted, false, text.AlignStart)
 		y += 44
 	}
@@ -443,12 +450,12 @@ func factionText(f game.Faction) color.RGBA {
 }
 
 func lossText(r game.Report) string {
-	s := fmt.Sprintf("Verluste %d zu %d", r.AttackerLoss, r.DefenderLoss)
+	s := fmt.Sprintf("Losses %d to %d", r.AttackerLoss, r.DefenderLoss)
 	if r.DefenderDestroyed {
-		s += ", Verteidiger vernichtet"
+		s += ", defender destroyed"
 	}
 	if r.AttackerDestroyed {
-		s += ", Angreifer vernichtet"
+		s += ", attacker destroyed"
 	}
 	return s
 }
@@ -458,35 +465,35 @@ func (a *App) drawEnd(dst *ebiten.Image) {
 	r := rect{mapW/2 - 300, 300, 600, 270}
 	fillRect(dst, r, colChrome)
 	strokeRect(dst, r, 3, colAmber)
-	title := "Unentschieden"
+	title := "Draw"
 	switch st.Winner {
 	case st.First:
-		title = "Sieg"
+		title = "Victory"
 	case st.First.Other():
-		title = "Niederlage"
+		title = "Defeat"
 	}
 	a.label(dst, title, mapW/2, r.y+36, 44, colText, true, text.AlignCenter)
 	a.label(dst, st.Reason, mapW/2, r.y+120, 17, colMuted, false, text.AlignCenter)
 	b := newGameButton()
 	fillRect(dst, b, colAmber)
-	a.label(dst, "Neue Partie", b.x+b.w/2, b.y+13, 18, colDeep, true, text.AlignCenter)
+	a.label(dst, "New match", b.x+b.w/2, b.y+13, 18, colDeep, true, text.AlignCenter)
 }
 
 func (a *App) drawMenu(dst *ebiten.Image) {
 	a.label(dst, "TotalKrieg", screenW/2, 150, 72, colText, true, text.AlignCenter)
-	a.label(dst, "Operationsspiel auf der Hexkarte, Prototyp", screenW/2, 250, 22, colMuted, false, text.AlignCenter)
-	a.label(dst, "Wähle deine Seite", screenW/2, 310, 20, colAmber, true, text.AlignCenter)
-	for _, f := range []game.Faction{game.Wehrmacht, game.Sowjetunion} {
+	a.label(dst, "Operational game on a hex map, prototype", screenW/2, 250, 22, colMuted, false, text.AlignCenter)
+	a.label(dst, "Choose your side", screenW/2, 310, 20, colAmber, true, text.AlignCenter)
+	for _, f := range []game.Faction{game.Wehrmacht, game.SovietUnion} {
 		r := factionButton(f)
 		fillRect(dst, r, colPanel)
 		strokeRect(dst, r, 2, colLine)
 		fillRect(dst, rect{r.x + 130, r.y + 20, 100, 120}, colPaper)
-		img := a.symbol(f, game.Division, 1.8)
+		img := a.symbol(f, game.Battalion, 1.8)
 		op := &ebiten.DrawImageOptions{}
 		w := float64(img.Bounds().Dx())
 		op.GeoM.Translate(r.x+180-w/2, r.y+30)
 		dst.DrawImage(img, op)
 		a.label(dst, f.String(), r.x+r.w/2, r.y+160, 28, colText, true, text.AlignCenter)
-		a.label(dst, "Kartenhälfte "+map[game.Faction]string{game.Wehrmacht: "West", game.Sowjetunion: "Ost"}[f], r.x+r.w/2, r.y+200, 15, colMuted, false, text.AlignCenter)
+		a.label(dst, "Map half: "+map[game.Faction]string{game.Wehrmacht: "West", game.SovietUnion: "East"}[f], r.x+r.w/2, r.y+200, 15, colMuted, false, text.AlignCenter)
 	}
 }

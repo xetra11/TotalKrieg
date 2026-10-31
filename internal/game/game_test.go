@@ -23,7 +23,7 @@ func TestMapGeneration(t *testing.T) {
 		if len(s.Objects) != 20 {
 			t.Fatalf("seed %d: %d objects, want 20", seed, len(s.Objects))
 		}
-		for _, f := range []Faction{Wehrmacht, Sowjetunion} {
+		for _, f := range []Faction{Wehrmacht, SovietUnion} {
 			counts := map[ObjectKind]int{}
 			for _, o := range s.Objects {
 				if o.Owner != f {
@@ -34,14 +34,14 @@ func TestMapGeneration(t *testing.T) {
 				if west != (f == Wehrmacht) {
 					t.Errorf("seed %d: %v on the wrong half: %v", seed, o.Kind, o.Pos)
 				}
-				if o.Kind == Hauptstadt {
+				if o.Kind == Capital {
 					rear := o.Pos.Col < MapCols/4 || o.Pos.Col >= MapCols*3/4
 					if !rear {
 						t.Errorf("seed %d: capital not in the rear: %v", seed, o.Pos)
 					}
 				}
 			}
-			want := map[ObjectKind]int{Hauptstadt: 1, Stadt: 2, Dorf: 5, Fabrik: 2}
+			want := map[ObjectKind]int{Capital: 1, City: 2, Village: 5, Factory: 2}
 			for k, n := range want {
 				if counts[k] != n {
 					t.Errorf("seed %d: %v has %d %v, want %d", seed, f, counts[k], k, n)
@@ -72,21 +72,31 @@ func TestSeedRepeatsMap(t *testing.T) {
 
 func TestStartState(t *testing.T) {
 	s := New(1, Wehrmacht)
-	if len(s.Units) != 6 {
-		t.Fatalf("%d units, want 6", len(s.Units))
-	}
+	staffs, companies := map[Faction]int{}, map[Faction]int{}
 	for _, u := range s.Units {
-		if u.Kind != Bataillon {
-			t.Errorf("unit %s is %v", u.Name, u.Kind)
+		switch u.Kind {
+		case Battalion:
+			staffs[u.Faction]++
+			if o := s.ObjectAt(u.Pos); o == nil || !o.Kind.IsCity() {
+				t.Errorf("staff %s not in a city", u.Name)
+			}
+		case Company:
+			companies[u.Faction]++
+			if !u.Linked() {
+				t.Errorf("company %s starts without a link", u.Name)
+			}
 		}
-		if o := s.ObjectAt(u.Pos); o == nil || !o.Kind.IsCity() {
-			t.Errorf("unit %s not in a city", u.Name)
-		}
+	}
+	if staffs[Wehrmacht] != 3 || staffs[SovietUnion] != 3 {
+		t.Errorf("staffs = %v, want 3 each", staffs)
+	}
+	if companies[Wehrmacht] != 12 || companies[SovietUnion] != 15 {
+		t.Errorf("companies = %v, want 12 and 15", companies)
 	}
 	if got := s.Stocks[Wehrmacht]; got != (Stock{Manpower: 3, Resources: 2}) {
 		t.Errorf("first turn income = %+v", got)
 	}
-	if got := s.Stocks[Sowjetunion]; got != (Stock{}) {
+	if got := s.Stocks[SovietUnion]; got != (Stock{}) {
 		t.Errorf("second faction has income before its turn: %+v", got)
 	}
 }
@@ -96,9 +106,29 @@ func clearField(s *State) {
 	s.Units = nil
 }
 
+// openField returns a match without objects or units.
+func openField() *State {
+	s := New(5, Wehrmacht)
+	clearField(s)
+	s.Objects = nil
+	return s
+}
+
+// linked places one company at pos with its staff next to it.
+func linked(s *State, f Faction, pos Coord) *Unit {
+	staff := s.Place(f, Battalion, Coord{pos.Col, pos.Row + 1})
+	tokens := staff.Element.Tokens()
+	c := tokens[1]
+	for _, x := range tokens[2:] {
+		s.remove(x)
+	}
+	c.Pos = pos
+	return c
+}
+
 func cityOf(s *State, f Faction) *Object {
 	for _, o := range s.Objects {
-		if o.Owner == f && o.Kind == Stadt {
+		if o.Owner == f && o.Kind == City {
 			return o
 		}
 	}
@@ -108,28 +138,48 @@ func cityOf(s *State, f Faction) *Object {
 func TestRecruitRules(t *testing.T) {
 	s := New(1, Wehrmacht)
 	o := cityOf(s, Wehrmacht)
-	if _, err := s.Recruit(o, Kompanie); err == nil {
+	if _, err := s.Recruit(o, Company); err == nil {
 		t.Error("recruited on an occupied city")
 	}
 	clearField(s)
-	if _, err := s.Recruit(o, Division); err == nil {
+	s.Stocks[Wehrmacht].Manpower = 2
+	if _, err := s.Recruit(o, Battalion); err == nil {
 		t.Error("recruited without enough manpower")
 	}
-	u, err := s.Recruit(o, Bataillon)
+	u, err := s.Recruit(o, Company)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if s.Stocks[Wehrmacht].Manpower != 0 {
+	if s.Stocks[Wehrmacht].Manpower != 1 {
 		t.Errorf("manpower = %d", s.Stocks[Wehrmacht].Manpower)
 	}
-	if u.MovesLeft != 0 {
+	if u.MovesLeft() != 0 {
 		t.Error("new unit can move")
 	}
 	if err := s.Move(u, u.Pos.Neighbors()[0]); err == nil {
 		t.Error("fresh unit moved")
 	}
-	if len(s.Reachable(u)) != 0 {
-		t.Error("fresh unit has reachable hexes")
+}
+
+func TestRecruitBattalionFieldsStaffAndCompanies(t *testing.T) {
+	s := New(1, Wehrmacht)
+	clearField(s)
+	s.Stocks[Wehrmacht].Manpower = 3
+	o := cityOf(s, Wehrmacht)
+	u, err := s.Recruit(o, Battalion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.Pos != o.Pos || u.Kind != Battalion {
+		t.Fatalf("staff %+v", u)
+	}
+	if got := len(s.Units); got != 5 {
+		t.Fatalf("%d units, want staff and 4 companies", got)
+	}
+	for _, x := range s.Units {
+		if x.MovesLeft() != 0 {
+			t.Errorf("%s can move in its first round", x.Short)
+		}
 	}
 }
 
@@ -138,48 +188,27 @@ func TestOneRecruitPerCity(t *testing.T) {
 	clearField(s)
 	s.Stocks[Wehrmacht].Manpower = 50
 	o := cityOf(s, Wehrmacht)
-	u, err := s.Recruit(o, Kompanie)
+	u, err := s.Recruit(o, Company)
 	if err != nil {
 		t.Fatal(err)
 	}
 	s.remove(u)
-	if _, err := s.Recruit(o, Kompanie); err == nil {
+	if _, err := s.Recruit(o, Company); err == nil {
 		t.Error("city recruited twice in a round")
 	}
 }
 
-func TestMovementRange(t *testing.T) {
-	s := New(1, Wehrmacht)
-	clearField(s)
-	u := s.Place(Wehrmacht, Kompanie, Coord{10, 8})
-	far := s.Reachable(u)
-	for c, d := range far {
-		if d > 3 || Distance(u.Pos, c) > 3 {
-			t.Errorf("%v reachable at %d", c, d)
-		}
-	}
-	if len(far) != 36 {
-		t.Errorf("%d hexes in range 3, want 36", len(far))
-	}
-	div := s.Place(Wehrmacht, Division, Coord{2, 2})
-	if n := len(s.Reachable(div)); n != 6 {
-		t.Errorf("division reaches %d hexes, want 6", n)
-	}
-}
-
 func TestEnemyBlocksOwnUnitsPass(t *testing.T) {
-	s := New(1, Wehrmacht)
-	clearField(s)
-	u := s.Place(Wehrmacht, Bataillon, Coord{5, 5})
+	s := openField()
+	u := linked(s, Wehrmacht, Coord{5, 5})
 	east := Coord{6, 5}
-	s.Place(Sowjetunion, Kompanie, east)
-	reach := s.Reachable(u)
-	if _, ok := reach[east]; ok {
+	s.Place(SovietUnion, Company, east)
+	if _, ok := s.Reachable(u)[east]; ok {
 		t.Error("enemy hex is reachable")
 	}
 	s.remove(s.UnitAt(east))
-	s.Place(Wehrmacht, Kompanie, east)
-	reach = s.Reachable(u)
+	s.Place(Wehrmacht, Company, east)
+	reach := s.Reachable(u)
 	if _, ok := reach[east]; ok {
 		t.Error("own unit's hex is reachable")
 	}
@@ -189,14 +218,13 @@ func TestEnemyBlocksOwnUnitsPass(t *testing.T) {
 }
 
 func TestMovementBudget(t *testing.T) {
-	s := New(1, Wehrmacht)
-	clearField(s)
-	u := s.Place(Wehrmacht, Kompanie, Coord{5, 5})
+	s := openField()
+	u := linked(s, Wehrmacht, Coord{5, 5})
 	if err := s.Move(u, Coord{6, 5}); err != nil {
 		t.Fatal(err)
 	}
-	if u.MovesLeft != 2 {
-		t.Fatalf("moves left %d, want 2", u.MovesLeft)
+	if u.MovesLeft() != 2 {
+		t.Fatalf("moves left %d, want 2", u.MovesLeft())
 	}
 	if err := s.Move(u, Coord{8, 5}); err != nil {
 		t.Fatal(err)
@@ -206,28 +234,26 @@ func TestMovementBudget(t *testing.T) {
 	}
 	s.EndTurn()
 	s.EndTurn()
-	if u.MovesLeft != 3 {
-		t.Errorf("moves after the round %d, want 3", u.MovesLeft)
+	if u.MovesLeft() != 3 {
+		t.Errorf("moves after the round %d, want 3", u.MovesLeft())
 	}
 }
 
 func TestMoveOntoEnemyIsNoPlainMove(t *testing.T) {
-	s := New(1, Wehrmacht)
-	clearField(s)
-	u := s.Place(Wehrmacht, Kompanie, Coord{5, 5})
-	s.Place(Sowjetunion, Kompanie, Coord{6, 5})
+	s := openField()
+	u := linked(s, Wehrmacht, Coord{5, 5})
+	s.Place(SovietUnion, Company, Coord{6, 5})
 	if err := s.Move(u, Coord{6, 5}); err == nil {
 		t.Error("moved onto an enemy without a fight")
 	}
 }
 
 func TestAttackFromDistance(t *testing.T) {
-	s := New(1, Wehrmacht)
-	clearField(s)
-	s.Objects = nil
-	u := s.Place(Wehrmacht, Kompanie, Coord{5, 5})
+	s := openField()
+	u := linked(s, Wehrmacht, Coord{5, 5})
 	target := Coord{8, 5}
-	d := s.Place(Sowjetunion, Division, target)
+	d := s.Place(SovietUnion, Company, target)
+	setStrength(d, 2)
 	from, ok := s.AttackTargets(u)[target]
 	if !ok {
 		t.Fatal("enemy 3 fields away is no target")
@@ -235,67 +261,15 @@ func TestAttackFromDistance(t *testing.T) {
 	if Distance(from, target) != 1 {
 		t.Fatalf("attacks from %v", from)
 	}
-	if _, err := s.Attack(u, target); err != nil {
+	r, err := s.Attack(u, target)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if u.Strength() > 0 && u.Pos != from {
-		t.Errorf("attacker at %v, want %v", u.Pos, from)
+	if !r.AttackerDestroyed && u.Pos != from && u.Pos != target {
+		t.Errorf("attacker at %v, want %v or %v", u.Pos, from, target)
 	}
-	if u.MovesLeft != 0 {
-		t.Errorf("moves left after attack: %d", u.MovesLeft)
-	}
-	if d.Pos != target {
-		t.Errorf("defender moved to %v", d.Pos)
-	}
-}
-
-func TestAttackRange(t *testing.T) {
-	s := New(1, Wehrmacht)
-	clearField(s)
-	s.Objects = nil
-	u := s.Place(Wehrmacht, Division, Coord{5, 5})
-	s.Place(Sowjetunion, Kompanie, Coord{7, 5})
-	if n := len(s.AttackTargets(u)); n != 0 {
-		t.Errorf("division reaches %d targets 2 fields away", n)
-	}
-	s.Place(Sowjetunion, Kompanie, Coord{6, 5})
-	if n := len(s.AttackTargets(u)); n != 1 {
-		t.Errorf("division reaches %d targets, want 1", n)
-	}
-}
-
-func TestPartlyMovedUnitAttacksWithRest(t *testing.T) {
-	s := New(1, Wehrmacht)
-	clearField(s)
-	s.Objects = nil
-	u := s.Place(Wehrmacht, Kompanie, Coord{5, 5})
-	target := Coord{8, 5}
-	s.Place(Sowjetunion, Kompanie, target)
-	if err := s.Move(u, Coord{6, 5}); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := s.AttackTargets(u)[target]; !ok {
-		t.Error("no target with 2 fields left at distance 2")
-	}
-	s.Place(Sowjetunion, Kompanie, Coord{9, 5})
-	if _, ok := s.AttackTargets(u)[Coord{9, 5}]; ok {
-		t.Error("target at distance 3 with 2 fields left")
-	}
-	u.MovesLeft = 0
-	if len(s.AttackTargets(u)) != 0 {
-		t.Error("target reachable with no movement left")
-	}
-}
-
-func TestRecruitAnytimeInOwnTurn(t *testing.T) {
-	s := New(1, Wehrmacht)
-	clearField(s)
-	u := s.Place(Wehrmacht, Kompanie, Coord{5, 5})
-	if err := s.Move(u, Coord{6, 5}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.Recruit(cityOf(s, Wehrmacht), Kompanie); err != nil {
-		t.Errorf("recruit after a move: %v", err)
+	if u.MovesLeft() != 0 {
+		t.Errorf("moves left after attack: %d", u.MovesLeft())
 	}
 }
 
@@ -304,17 +278,23 @@ func TestCombatLossesStayInRange(t *testing.T) {
 		s := New(seed, Wehrmacht)
 		clearField(s)
 		s.Objects = nil
-		u := s.Place(Wehrmacht, Division, Coord{5, 5})
-		d := s.Place(Sowjetunion, Division, Coord{6, 5})
+		u := s.Place(Wehrmacht, Company, Coord{5, 5})
+		for i := 0; i < 2; i++ {
+			s.Place(SovietUnion, Company, []Coord{{6, 5}, {7, 5}}[i])
+		}
+		u.Element.Current, u.Element.Full = 100, 100
+		d := s.UnitAt(Coord{6, 5})
+		d.Element.Current, d.Element.Full = 100, 100
 		r, err := s.Attack(u, d.Pos)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if r.AttackerLoss < 17 || r.AttackerLoss > 33 {
-			t.Errorf("attacker loss %d outside 20-40%% of 81", r.AttackerLoss)
+		// The second enemy stands next to the target and supports it.
+		if r.AttackerLoss < 21 || r.AttackerLoss > 41 {
+			t.Errorf("attacker loss %d outside 20-40%% of 102", r.AttackerLoss)
 		}
-		if r.DefenderLoss < 22 || r.DefenderLoss > 44 {
-			t.Errorf("defender loss %d outside 20-40%% of 108", r.DefenderLoss)
+		if r.DefenderLoss < 20 || r.DefenderLoss > 40 {
+			t.Errorf("defender loss %d outside 20-40%% of 100", r.DefenderLoss)
 		}
 		if _, err := s.Attack(u, d.Pos); err == nil {
 			t.Error("attacked twice")
@@ -330,10 +310,11 @@ func TestCityBonusRaisesAttackerLoss(t *testing.T) {
 			clearField(s)
 			s.Objects = nil
 			if inCity {
-				s.Objects = []*Object{{Kind: Stadt, Pos: Coord{6, 5}, Owner: Sowjetunion}}
+				s.Objects = []*Object{{Kind: City, Pos: Coord{6, 5}, Owner: SovietUnion}}
 			}
-			u := s.Place(Wehrmacht, Division, Coord{5, 5})
-			s.Place(Sowjetunion, Division, Coord{6, 5})
+			u := s.Place(Wehrmacht, Company, Coord{5, 5})
+			d := s.Place(SovietUnion, Company, Coord{6, 5})
+			u.Element.Current, d.Element.Current = 100, 100
 			r, err := s.Attack(u, Coord{6, 5})
 			if err != nil {
 				t.Fatal(err)
@@ -350,11 +331,9 @@ func TestCityBonusRaisesAttackerLoss(t *testing.T) {
 }
 
 func TestAttackerAdvancesAfterKill(t *testing.T) {
-	s := New(3, Wehrmacht)
-	clearField(s)
-	s.Objects = nil
-	u := s.Place(Wehrmacht, Division, Coord{5, 5})
-	d := s.Place(Sowjetunion, Kompanie, Coord{6, 5})
+	s := openField()
+	u := linked(s, Wehrmacht, Coord{5, 5})
+	d := s.Place(SovietUnion, Company, Coord{6, 5})
 	setStrength(d, 1)
 	r, err := s.Attack(u, Coord{6, 5})
 	if err != nil {
@@ -369,35 +348,43 @@ func TestAttackerAdvancesAfterKill(t *testing.T) {
 }
 
 func TestLossesStay(t *testing.T) {
-	s := New(3, Wehrmacht)
-	clearField(s)
-	u := s.Place(Wehrmacht, Bataillon, Coord{5, 5})
-	setStrength(u, 5)
-	for i := 0; i < 3; i++ {
+	s := openField()
+	u := linked(s, Wehrmacht, Coord{5, 5})
+	setStrength(u, 1)
+	for i := 0; i < 4; i++ {
 		s.EndTurn()
 	}
-	for i := 0; i < 3; i++ {
-		s.EndTurn()
-	}
-	if u.Strength() != 5 {
-		t.Errorf("strength = %d, want 5", u.Strength())
+	if u.Strength() != 1 {
+		t.Errorf("strength = %d, want 1", u.Strength())
 	}
 }
 
 func TestConquestAndIncome(t *testing.T) {
 	s := New(1, Wehrmacht)
 	clearField(s)
-	o := cityOf(s, Sowjetunion)
-	s.Place(Wehrmacht, Kompanie, o.Pos)
+	o := cityOf(s, SovietUnion)
+	s.Place(Wehrmacht, Company, o.Pos)
 	s.EndTurn()
 	if o.Owner != Wehrmacht {
 		t.Fatal("city not conquered at end of turn")
 	}
-	if s.Active != Sowjetunion {
+	if s.Active != SovietUnion {
 		t.Fatalf("active = %v", s.Active)
 	}
-	if got := s.Stocks[Sowjetunion].Manpower; got != 2 {
+	if got := s.Stocks[SovietUnion].Manpower; got != 2 {
 		t.Errorf("soviet manpower = %d, want 2", got)
+	}
+}
+
+func TestStaffsDontCapture(t *testing.T) {
+	s := New(1, Wehrmacht)
+	clearField(s)
+	o := cityOf(s, SovietUnion)
+	u := s.Place(Wehrmacht, Battalion, Coord{0, 0})
+	u.Pos = o.Pos
+	s.EndTurn()
+	if o.Owner != SovietUnion {
+		t.Error("staff captured a city")
 	}
 }
 
@@ -405,8 +392,8 @@ func TestCapitalWinsImmediately(t *testing.T) {
 	s := New(1, Wehrmacht)
 	clearField(s)
 	for _, o := range s.Objects {
-		if o.Kind == Hauptstadt && o.Owner == Sowjetunion {
-			s.Place(Wehrmacht, Kompanie, o.Pos)
+		if o.Kind == Capital && o.Owner == SovietUnion {
+			s.Place(Wehrmacht, Company, o.Pos)
 		}
 	}
 	s.EndTurn()
@@ -418,9 +405,9 @@ func TestCapitalWinsImmediately(t *testing.T) {
 func TestRoundLimitCountsCities(t *testing.T) {
 	s := New(1, Wehrmacht)
 	clearField(s)
-	cityOf(s, Sowjetunion).Owner = Wehrmacht
+	cityOf(s, SovietUnion).Owner = Wehrmacht
 	s.Round = MaxRounds
-	s.Active = Sowjetunion
+	s.Active = SovietUnion
 	s.EndTurn()
 	if !s.Over || s.Winner != Wehrmacht {
 		t.Fatalf("over=%v winner=%v reason=%q", s.Over, s.Winner, s.Reason)
@@ -431,7 +418,7 @@ func TestRoundLimitDraw(t *testing.T) {
 	s := New(1, Wehrmacht)
 	clearField(s)
 	s.Round = MaxRounds
-	s.Active = Sowjetunion
+	s.Active = SovietUnion
 	s.EndTurn()
 	if !s.Over || s.Winner != NoFaction {
 		t.Fatalf("over=%v winner=%v", s.Over, s.Winner)
@@ -446,60 +433,39 @@ func TestAIDefendsAndRaisesCompanies(t *testing.T) {
 	if !OnMap(near) {
 		near = Coord{o.Pos.Col, o.Pos.Row - 2}
 	}
-	s.Place(Sowjetunion, Kompanie, near)
+	s.Place(SovietUnion, Company, near)
 	s.aiRecruit()
 	u := s.UnitAt(o.Pos)
-	if u == nil || u.Kind != Kompanie {
+	if u == nil || u.Kind != Company {
 		t.Fatalf("threatened city raised %+v", u)
 	}
 }
 
-func TestAISavesForDivision(t *testing.T) {
+func TestAISavesForBattalion(t *testing.T) {
 	s := New(1, Wehrmacht)
 	clearField(s)
-	s.Stocks[Wehrmacht].Manpower = 26
+	s.Stocks[Wehrmacht].Manpower = 2
 	s.aiRecruit()
 	if len(s.Units) != 0 {
-		t.Fatalf("raised %s below division cost", s.Units[0].Name)
+		t.Fatalf("raised %s below battalion cost", s.Units[0].Name)
 	}
-	s.Stocks[Wehrmacht].Manpower = 27
+	s.Stocks[Wehrmacht].Manpower = 3
 	s.aiRecruit()
-	if len(s.Units) != 1 || s.Units[0].Kind != Division {
+	if len(s.Units) != 5 {
 		t.Fatalf("units = %d", len(s.Units))
 	}
 }
 
-func TestAIRecruitsDespiteOccupiedThreatenedCity(t *testing.T) {
-	s := New(1, Wehrmacht)
-	clearField(s)
-	o := cityOf(s, Wehrmacht)
-	s.Place(Wehrmacht, Bataillon, o.Pos)
-	near := Coord{o.Pos.Col, o.Pos.Row + 2}
-	if !OnMap(near) {
-		near = Coord{o.Pos.Col, o.Pos.Row - 2}
-	}
-	s.Place(Sowjetunion, Kompanie, near)
-	s.Stocks[Wehrmacht].Manpower = 40
-	s.aiRecruit()
-	for _, u := range s.Units {
-		if u.Kind == Division {
-			return
-		}
-	}
-	t.Errorf("no division raised while one city was blocked, manpower left %d", s.Stocks[Wehrmacht].Manpower)
-}
-
 func TestAIRespectsAttackRatio(t *testing.T) {
-	s := New(1, Wehrmacht)
-	clearField(s)
-	s.Objects = nil
-	u := s.Place(Wehrmacht, Bataillon, Coord{5, 5})
-	s.Place(Sowjetunion, Bataillon, Coord{6, 5})
-	setStrength(u, 10)
+	s := openField()
+	u := linked(s, Wehrmacht, Coord{5, 5})
+	u.Element.Current, u.Element.Full = 10, 10
+	e := s.Place(SovietUnion, Company, Coord{6, 5})
+	e.Element.Current, e.Element.Full = 9, 9
 	if s.bestAttackTarget(u) != nil {
 		t.Error("attacks at 10 against 9")
 	}
-	setStrength(u, 11)
+	u.Element.Current = 11
 	if s.bestAttackTarget(u) == nil {
 		t.Error("skips attack at 11 against 9")
 	}
@@ -539,6 +505,6 @@ func TestFullMatches(t *testing.T) {
 		wins[s.Winner]++
 		rounds += s.Round
 	}
-	t.Logf("Wehrmacht %d, Sowjetunion %d, Unentschieden %d, mittlere Runden %.1f",
-		wins[Wehrmacht], wins[Sowjetunion], wins[NoFaction], float64(rounds)/400)
+	t.Logf("Wehrmacht %d, Soviet Union %d, draws %d, mean rounds %.1f",
+		wins[Wehrmacht], wins[SovietUnion], wins[NoFaction], float64(rounds)/400)
 }

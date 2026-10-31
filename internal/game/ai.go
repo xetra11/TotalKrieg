@@ -10,10 +10,10 @@ const (
 
 // objectWeight ranks capture targets: capital, city, factory, village.
 var objectWeight = map[ObjectKind]float64{
-	Hauptstadt: 8,
-	Stadt:      5,
-	Fabrik:     3,
-	Dorf:       1,
+	Capital: 8,
+	City:    5,
+	Factory: 3,
+	Village: 1,
 }
 
 // PlayTurn plays the active faction's whole turn with the AI priorities from
@@ -22,12 +22,33 @@ func (s *State) PlayTurn() {
 	if s.Over {
 		return
 	}
+	s.fleeAll()
 	s.aiRecruit()
+	s.aiMoveStaffs()
 	s.aiDefend()
 	s.aiAttack()
 	s.aiAdvance()
 	s.aiAttack()
+	s.aiMoveStaffs()
 	s.EndTurn()
+}
+
+// aiMoveStaffs keeps every staff in the middle of its companies.
+func (s *State) aiMoveStaffs() {
+	for _, u := range s.Units {
+		if u.Faction != s.Active || u.Kind != Battalion {
+			continue
+		}
+		col, row, n := 0, 0, 0
+		for _, t := range u.Element.Tokens() {
+			if t != u {
+				col, row, n = col+t.Pos.Col, row+t.Pos.Row, n+1
+			}
+		}
+		if n > 0 {
+			s.moveToward(u, Coord{col / n, row / n})
+		}
+	}
 }
 
 // threatenedCities returns own cities with an enemy within threat range.
@@ -51,13 +72,13 @@ func (s *State) enemyNear(c Coord) bool {
 }
 
 // aiRecruit raises companies in threatened cities. Every other city saves for
-// a division, so one occupied city can't freeze all recruiting.
+// a battalion, so one occupied city can't freeze all recruiting.
 func (s *State) aiRecruit() {
 	for _, o := range s.threatenedCities() {
-		s.Recruit(o, Kompanie)
+		s.Recruit(o, Company)
 	}
 	for _, o := range s.ownCitiesByFront() {
-		if _, err := s.Recruit(o, Division); err == nil {
+		if _, err := s.Recruit(o, Battalion); err == nil {
 			return
 		}
 	}
@@ -98,10 +119,10 @@ func (s *State) aiDefend() {
 	}
 }
 
-// aiAdvance moves the remaining units toward the best objective.
+// aiAdvance moves the remaining companies toward the best objective.
 func (s *State) aiAdvance() {
 	for _, u := range append([]*Unit(nil), s.Units...) {
-		if u.Faction != s.Active || u.MovesLeft == 0 {
+		if u.Faction != s.Active || u.Kind != Company || u.MovesLeft() == 0 {
 			continue
 		}
 		if target, ok := s.bestObjective(u); ok {
@@ -113,7 +134,7 @@ func (s *State) aiAdvance() {
 func (s *State) nearestFreeUnit(c Coord, busy map[*Unit]bool) *Unit {
 	var best *Unit
 	for _, u := range s.Units {
-		if u.Faction != s.Active || busy[u] || u.MovesLeft == 0 {
+		if u.Faction != s.Active || u.Kind != Company || busy[u] || u.MovesLeft() == 0 {
 			continue
 		}
 		if best == nil || Distance(u.Pos, c) < Distance(best.Pos, c) {

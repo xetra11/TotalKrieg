@@ -1,0 +1,5 @@
+Effect beg: enemy = 125.934, 0.000, 125.934, 0.000,  alieds = 201.486, 0.000, 201.486, 0.000
+Effect end: enemy = 38.657, 0.000, 38.657, 0.000,  alieds = 189.098, 1.000, 218.863, 0.000
+Losts: enemy = 87.277,  alieds = -17.377
+balance = 0.325, level = 1
+ [i_trigman:trigman] Tactical result : MINOR VICTORY [4]

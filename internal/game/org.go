@@ -1,35 +1,52 @@
 package game
 
-import "errors"
+const (
+	// CommandRange is how far a company may stand from its battalion staff and
+	// keep its link.
+	CommandRange = 4
+	// UnlinkedMove is a company's movement without a link.
+	UnlinkedMove = 1
+
+	staffStrength = 1
+)
 
 // CompanyRole is the type of a company.
 type CompanyRole int
 
 const (
-	RoleSchuetzen CompanyRole = iota
+	RoleRifle CompanyRole = iota
 	RoleMG
-	RoleGranatwerfer
+	RoleMortar
 )
 
 func (r CompanyRole) String() string {
 	switch r {
 	case RoleMG:
-		return "MG-Kompanie"
-	case RoleGranatwerfer:
-		return "Granatwerfer-Kompanie"
+		return "MG company"
+	case RoleMortar:
+		return "Mortar company"
 	}
-	return "Schützenkompanie"
+	return "Rifle company"
 }
 
-// companyStrength holds the strength of a full company. A battalion's strength
-// is the sum of its companies, so the unit table in types.go follows from it.
 var companyStrength = [2][3]int{
-	Wehrmacht:   {RoleSchuetzen: 3, RoleMG: 3},
-	Sowjetunion: {RoleSchuetzen: 2, RoleMG: 2, RoleGranatwerfer: 1},
+	Wehrmacht:   {RoleRifle: 3, RoleMG: 3},
+	SovietUnion: {RoleRifle: 2, RoleMG: 2, RoleMortar: 1},
 }
 
-// Element is a node of the order of battle. It keeps its place in the tree for
-// good: a detached company still belongs to its battalion and division.
+// companyRoles lists the companies of a battalion.
+var companyRoles = [2][]CompanyRole{
+	Wehrmacht:   {RoleRifle, RoleRifle, RoleRifle, RoleMG},
+	SovietUnion: {RoleRifle, RoleRifle, RoleRifle, RoleMG, RoleMortar},
+}
+
+// BattalionSize is the number of companies in a battalion.
+func BattalionSize(f Faction) int {
+	return len(companyRoles[f])
+}
+
+// Element is a node of the order of battle. It keeps its place when its unit
+// is destroyed, so losses stay visible.
 type Element struct {
 	Faction  Faction
 	Kind     UnitKind
@@ -38,14 +55,13 @@ type Element struct {
 	Parent   *Element
 	Children []*Element
 
-	// Company data.
 	Role     CompanyRole
 	Callsign string
 	Leader   string
 	Current  int
 	Full     int
 
-	// Token is set when the element forms its own unit on the map.
+	// Token is the element's unit on the map, nil once destroyed.
 	Token *Unit
 }
 
@@ -57,25 +73,13 @@ func (e *Element) Root() *Element {
 	return e
 }
 
-// Holder returns the map unit the element currently marches with.
-func (e *Element) Holder() *Unit {
-	for x := e; x != nil; x = x.Parent {
-		if x.Token != nil {
-			return x.Token
-		}
-	}
-	return nil
-}
-
-// Detached reports whether the element is split off from its parent.
-func (e *Element) Detached() bool {
-	return e.Parent != nil && e.Token != nil
-}
-
-// Strength sums the element's companies, detached ones included.
+// Strength is a company's value, or the sum of a battalion's companies.
 func (e *Element) Strength() int {
+	if e.Kind == Company {
+		return e.Current
+	}
 	sum := 0
-	for _, c := range e.companies(false) {
+	for _, c := range e.Children {
 		sum += c.Current
 	}
 	return sum
@@ -83,30 +87,17 @@ func (e *Element) Strength() int {
 
 // FullStrength is the establishment value of Strength.
 func (e *Element) FullStrength() int {
+	if e.Kind == Company {
+		return e.Full
+	}
 	sum := 0
-	for _, c := range e.companies(false) {
+	for _, c := range e.Children {
 		sum += c.Full
 	}
 	return sum
 }
 
-// companies lists the companies below an element. With presentOnly set,
-// branches that left as their own unit are skipped.
-func (e *Element) companies(presentOnly bool) []*Element {
-	if e.Kind == Kompanie {
-		return []*Element{e}
-	}
-	var out []*Element
-	for _, c := range e.Children {
-		if presentOnly && c.Token != nil {
-			continue
-		}
-		out = append(out, c.companies(presentOnly)...)
-	}
-	return out
-}
-
-// Tokens lists the map units of a formation, the element's own included.
+// Tokens lists the map units of a formation.
 func (e *Element) Tokens() []*Unit {
 	var out []*Unit
 	if e.Token != nil {
@@ -118,121 +109,67 @@ func (e *Element) Tokens() []*Unit {
 	return out
 }
 
-// Strength sums the companies marching with the unit.
+// Strength is the unit's current fighting value.
 func (u *Unit) Strength() int {
-	sum := 0
-	for _, c := range u.Element.companies(true) {
-		sum += c.Current
-	}
-	return sum
+	return u.Element.Current
 }
 
-// FullStrength is the establishment value of Strength.
+// FullStrength is the unit's establishment value.
 func (u *Unit) FullStrength() int {
-	sum := 0
-	for _, c := range u.Element.companies(true) {
-		sum += c.Full
-	}
-	return sum
+	return u.Element.Full
 }
 
-// takeLoss spreads a loss over the companies, strongest first.
-func (u *Unit) takeLoss(n int) {
-	companies := u.Element.companies(true)
-	for ; n > 0; n-- {
-		var worst *Element
-		for _, c := range companies {
-			if c.Current > 0 && (worst == nil || c.Current > worst.Current) {
-				worst = c
-			}
-		}
-		if worst == nil {
-			return
-		}
-		worst.Current--
-	}
-}
-
-// DetachSpots returns the free hexes next to a unit.
-func (s *State) DetachSpots(u *Unit) []Coord {
-	var out []Coord
-	for _, c := range u.Pos.Neighbors() {
-		if OnMap(c) && s.UnitAt(c) == nil {
-			out = append(out, c)
-		}
-	}
-	return out
-}
-
-// CanDetach explains why an element can't leave its unit, or returns nil.
-func (s *State) CanDetach(e *Element) error {
-	u := e.Holder()
-	switch {
-	case s.Over:
-		return errors.New("Die Partie ist beendet.")
-	case u == nil || u.Faction != s.Active:
-		return errors.New("Dieser Verband gehört dir nicht.")
-	case e.Token != nil:
-		return errors.New("Diese Einheit ist schon ausgegliedert.")
-	case e.Kind != Kompanie && e.Kind != Bataillon:
-		return errors.New("Nur Kompanien und Bataillone lassen sich ausgliedern.")
-	case u.MovesLeft < u.Stats().Move:
-		return errors.New("Ausgliedern geht nur, bevor der Verband zieht.")
-	case e.Strength() <= 0:
-		return errors.New("Diese Einheit ist aufgerieben.")
-	case u.Strength()-e.Strength() <= 0:
-		return errors.New("Der Verband braucht mindestens eine eigene Kompanie.")
-	case len(s.DetachSpots(u)) == 0:
-		return errors.New("Neben dem Verband ist kein Feld frei.")
-	}
-	return nil
-}
-
-// Detach splits an element off as its own unit on a neighboring hex. It stays
-// part of its formation and can still move this turn.
-func (s *State) Detach(e *Element, to Coord) (*Unit, error) {
-	if err := s.CanDetach(e); err != nil {
-		return nil, err
-	}
-	u := e.Holder()
-	if Distance(u.Pos, to) != 1 || !OnMap(to) || s.UnitAt(to) != nil {
-		return nil, errors.New("Dieses Feld ist nicht frei.")
-	}
-	return s.placeElement(e, to), nil
-}
-
-// reattachTarget finds the nearest superior unit still on the map.
-func (u *Unit) reattachTarget() *Unit {
+// Staff returns the company's battalion staff on the map, or nil.
+func (u *Unit) Staff() *Unit {
 	if u.Element.Parent == nil {
 		return nil
 	}
-	return u.Element.Parent.Holder()
+	return u.Element.Parent.Token
 }
 
-// CanReattach returns the unit a detachment would rejoin, or why it can't.
-func (s *State) CanReattach(u *Unit) (*Unit, error) {
-	if !u.Element.Detached() {
-		return nil, errors.New("Diese Einheit ist nicht ausgegliedert.")
-	}
-	if u.Faction != s.Active {
-		return nil, errors.New("Eingliedern geht nur im eigenen Zug.")
-	}
-	t := u.reattachTarget()
-	if t == nil {
-		return nil, errors.New("Der Stammverband ist nicht mehr auf der Karte.")
-	}
-	if Distance(u.Pos, t.Pos) != 1 {
-		return nil, errors.New("Der Stammverband muss direkt benachbart sein.")
-	}
-	return t, nil
+// Linked reports whether a company stands within reach of its battalion staff.
+func (u *Unit) Linked() bool {
+	staff := u.Staff()
+	return staff != nil && Distance(u.Pos, staff.Pos) <= CommandRange
 }
 
-// Reattach returns a detachment to its parent unit.
-func (s *State) Reattach(u *Unit) (*Unit, error) {
-	t, err := s.CanReattach(u)
-	if err != nil {
-		return nil, err
+// Allowance is the unit's movement this turn. A company's depends on its link,
+// so moving the staff up restores it at once.
+func (u *Unit) Allowance() int {
+	if u.Kind == Company && !u.Linked() {
+		return UnlinkedMove
 	}
-	s.remove(u)
-	return t, nil
+	return u.Stats().Move
+}
+
+// MovesLeft is the movement the unit has left this turn.
+func (u *Unit) MovesLeft() int {
+	if u.Spent {
+		return 0
+	}
+	return max(0, u.Allowance()-u.Used)
+}
+
+// takeLosses spreads a loss over units, strongest first.
+func takeLosses(units []*Unit, n int) {
+	for ; n > 0; n-- {
+		var strongest *Unit
+		for _, u := range units {
+			if u.Strength() > 0 && (strongest == nil || u.Strength() > strongest.Strength()) {
+				strongest = u
+			}
+		}
+		if strongest == nil {
+			return
+		}
+		strongest.Element.Current--
+	}
+}
+
+func totalStrength(units []*Unit) int {
+	sum := 0
+	for _, u := range units {
+		sum += u.Strength()
+	}
+	return sum
 }

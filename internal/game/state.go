@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const unitKindCount = 2
+
 const (
 	// MaxRounds ends the match when no capital fell.
 	MaxRounds = 40
@@ -34,9 +36,10 @@ type State struct {
 	Winner Faction // NoFaction on a draw
 	Reason string
 
+	routs         []*Rout
 	rng           *rand.Rand
 	nextID        int
-	counts        [2][3]int
+	counts        [2][unitKindCount]int
 	callsignsUsed [2]int
 	surnamePool   [2][]string
 }
@@ -54,24 +57,30 @@ func New(seed uint64, first Faction) *State {
 	s.Objects = generateObjects(s.rng)
 	for _, o := range s.Objects {
 		if o.Kind.IsCity() {
-			s.Place(o.Owner, Bataillon, o.Pos)
+			s.Place(o.Owner, Battalion, o.Pos)
 		}
 	}
 	s.beginTurn()
 	return s
 }
 
-// Place puts a new, full-strength formation on the map.
+// Place puts a new, full-strength formation on the map. A battalion's staff
+// takes the hex, its companies the free hexes around it.
 func (s *State) Place(f Faction, k UnitKind, pos Coord) *Unit {
-	return s.placeElement(s.buildFormation(f, k), pos)
+	e := s.buildFormation(f, k)
+	u := s.placeElement(e, pos)
+	spots := s.freeSpots(pos, len(e.Children))
+	for i, c := range e.Children {
+		s.placeElement(c, spots[i])
+	}
+	return u
 }
 
-// placeElement gives an element its own unit on the map.
+// placeElement gives an element its unit on the map.
 func (s *State) placeElement(e *Element, pos Coord) *Unit {
 	u := &Unit{ID: s.nextID, Faction: e.Faction, Kind: e.Kind, Pos: pos, Element: e, Name: e.Name, Short: e.Short}
-	u.MovesLeft = u.Stats().Move
-	if e.Faction == Sowjetunion {
-		u.Flag = sovietFlag(e)
+	if e.Faction == SovietUnion && e.Kind == Battalion {
+		u.Flag = strings.SplitN(e.Short, "/", 2)[0]
 	}
 	e.Token = u
 	s.nextID++
@@ -79,16 +88,23 @@ func (s *State) placeElement(e *Element, pos Coord) *Unit {
 	return u
 }
 
-// sovietFlag is the text inside the flag: the designation on a division flag,
-// the battalion number on a pennant.
-func sovietFlag(e *Element) string {
-	switch e.Kind {
-	case Division:
-		return e.Short
-	case Bataillon:
-		return strings.SplitN(e.Short, "/", 2)[0]
+// freeSpots returns the n free hexes nearest a position. Objects stay clear, so
+// a company doesn't block the city a staff starts in.
+func (s *State) freeSpots(pos Coord, n int) []Coord {
+	var out []Coord
+	for ring := 1; len(out) < n; ring++ {
+		dist := map[Coord]int{}
+		for row := 0; row < MapRows; row++ {
+			for col := 0; col < MapCols; col++ {
+				c := Coord{col, row}
+				if Distance(pos, c) == ring && s.UnitAt(c) == nil && s.ObjectAt(c) == nil {
+					dist[c] = ring
+				}
+			}
+		}
+		out = append(out, sortedCoords(dist)...)
 	}
-	return ""
+	return out[:n]
 }
 
 // UnitAt returns the unit on a hex, or nil.
@@ -120,7 +136,7 @@ func (s *State) beginTurn() {
 	f := s.Active
 	for _, u := range s.Units {
 		if u.Faction == f {
-			u.MovesLeft = u.Stats().Move
+			u.Used, u.Spent = 0, false
 		}
 	}
 	for _, o := range s.Objects {
@@ -131,7 +147,7 @@ func (s *State) beginTurn() {
 		switch {
 		case o.Kind.IsCity():
 			s.Stocks[f].Manpower++
-		case o.Kind == Fabrik:
+		case o.Kind == Factory:
 			s.Stocks[f].Resources++
 		}
 	}
@@ -141,17 +157,17 @@ func (s *State) beginTurn() {
 func (s *State) CanRecruit(o *Object, k UnitKind) error {
 	switch {
 	case s.Over:
-		return errors.New("Die Partie ist beendet.")
+		return errors.New("The match is over.")
 	case o == nil || !o.Kind.IsCity():
-		return errors.New("Nur Städte stellen Einheiten auf.")
+		return errors.New("Only cities raise units.")
 	case o.Owner != s.Active:
-		return errors.New("Diese Stadt gehört dir nicht.")
+		return errors.New("This city is not yours.")
 	case o.Recruited:
-		return errors.New("Diese Stadt hat in dieser Runde schon aufgestellt.")
+		return errors.New("This city already raised a unit this round.")
 	case s.UnitAt(o.Pos) != nil:
-		return errors.New("Das Stadtfeld ist besetzt.")
+		return errors.New("The city hex is occupied.")
 	case s.Stocks[s.Active].Manpower < Stats(s.Active, k).Cost:
-		return errors.New("Zu wenig Manpower.")
+		return errors.New("Not enough manpower.")
 	}
 	return nil
 }
@@ -164,7 +180,9 @@ func (s *State) Recruit(o *Object, k UnitKind) (*Unit, error) {
 	s.Stocks[s.Active].Manpower -= Stats(s.Active, k).Cost
 	o.Recruited = true
 	u := s.Place(s.Active, k, o.Pos)
-	u.MovesLeft = 0
+	for _, t := range u.Element.Tokens() {
+		t.Spent = true
+	}
 	return u, nil
 }
 
@@ -172,13 +190,14 @@ func (s *State) Recruit(o *Object, k UnitKind) (*Unit, error) {
 // Enemy units block, own units can be passed but not joined.
 func (s *State) Reachable(u *Unit) map[Coord]int {
 	out := map[Coord]int{}
+	budget := u.MovesLeft()
 	dist := map[Coord]int{u.Pos: 0}
 	frontier := []Coord{u.Pos}
 	for len(frontier) > 0 {
 		c := frontier[0]
 		frontier = frontier[1:]
 		d := dist[c]
-		if d == u.MovesLeft {
+		if d == budget {
 			continue
 		}
 		for _, n := range c.Neighbors() {
@@ -207,26 +226,28 @@ func (s *State) Reachable(u *Unit) map[Coord]int {
 func (s *State) Move(u *Unit, to Coord) error {
 	switch {
 	case s.Over:
-		return errors.New("Die Partie ist beendet.")
+		return errors.New("The match is over.")
 	case u.Faction != s.Active:
-		return errors.New("Diese Einheit gehört dir nicht.")
-	case u.MovesLeft == 0:
-		return errors.New("Diese Einheit kann in dieser Runde nicht mehr ziehen.")
+		return errors.New("This unit is not yours.")
+	case u.MovesLeft() == 0:
+		return errors.New("This unit can't move any more this round.")
 	}
 	d, ok := s.Reachable(u)[to]
 	if !ok {
-		return errors.New("Dieses Feld ist nicht erreichbar.")
+		return errors.New("This hex is out of reach.")
 	}
 	u.Pos = to
-	u.MovesLeft -= d
+	u.Used += d
 	return nil
 }
 
 // AttackTargets maps each enemy hex the unit can move onto to the hex it
-// attacks from. That is the nearest hex next to the enemy.
+// attacks from. That is the nearest hex next to the enemy. Only companies
+// attack, staffs never do.
 func (s *State) AttackTargets(u *Unit) map[Coord]Coord {
 	out := map[Coord]Coord{}
-	if u.MovesLeft == 0 {
+	budget := u.MovesLeft()
+	if u.Kind != Company || budget == 0 {
 		return out
 	}
 	reach := s.Reachable(u)
@@ -234,7 +255,7 @@ func (s *State) AttackTargets(u *Unit) map[Coord]Coord {
 	best := map[Coord]int{}
 	for _, c := range sortedCoords(reach) {
 		d := reach[c]
-		if d >= u.MovesLeft {
+		if d >= budget {
 			continue
 		}
 		for _, n := range c.Neighbors() {
@@ -254,60 +275,81 @@ func (s *State) AttackTargets(u *Unit) map[Coord]Coord {
 func (s *State) CanAttack(u *Unit, target Coord) error {
 	switch {
 	case s.Over:
-		return errors.New("Die Partie ist beendet.")
+		return errors.New("The match is over.")
 	case u.Faction != s.Active:
-		return errors.New("Diese Einheit gehört dir nicht.")
+		return errors.New("This unit is not yours.")
 	}
 	if _, ok := s.AttackTargets(u)[target]; !ok {
-		return errors.New("Dieses Ziel ist nicht erreichbar.")
+		return errors.New("This target is out of reach.")
 	}
 	return nil
 }
 
-// Attack moves a unit next to the target and resolves the fight automatically.
-// Both sides roll, and each loses the opposing strength times the opposing
-// roll, rounded up. An attack ends the unit's movement.
+// Attack moves a company next to the target and resolves the fight
+// automatically. Both sides roll, and each loses the opposing strength times
+// the opposing roll, rounded up. Every attacker is done for this turn.
 func (s *State) Attack(u *Unit, target Coord) (Report, error) {
 	if err := s.CanAttack(u, target); err != nil {
 		return Report{}, err
 	}
-	d := s.UnitAt(target)
+	attackers, defenders := s.Engagement(u, target)
 	u.Pos = s.AttackTargets(u)[target]
-	u.MovesLeft = 0
 
 	defenderPercent := s.rollPercent()
 	if o := s.ObjectAt(target); o != nil && o.Kind.IsCity() {
 		defenderPercent = defenderPercent * cityDefenseBonusPercent / 100
 	}
-	attackerLoss := ceilPercent(d.Strength(), defenderPercent)
-	defenderLoss := ceilPercent(u.Strength(), s.rollPercent())
-	u.takeLoss(attackerLoss)
-	d.takeLoss(defenderLoss)
+	attackerLoss := ceilPercent(totalStrength(defenders), defenderPercent)
+	defenderLoss := ceilPercent(totalStrength(attackers), s.rollPercent())
+	o := autoOutcome(attackerLoss, totalStrength(attackers), defenderLoss, totalStrength(defenders))
+	return s.settle(u, attackers, defenders, target, o, attackerLoss, defenderLoss), nil
+}
 
+// settle books the losses of a fight.
+func (s *State) settle(u *Unit, attackers, defenders []*Unit, target Coord, o Outcome, attackerLoss, defenderLoss int) Report {
+	d := defenders[0]
 	r := Report{
 		Round:           s.Round,
-		Attacker:        u.Short,
-		Defender:        d.Short,
+		Attacker:        fightLabel(attackers),
+		Defender:        fightLabel(defenders),
 		AttackerFaction: u.Faction,
 		AttackerLoss:    attackerLoss,
 		DefenderLoss:    defenderLoss,
 		Pos:             target,
 	}
-	if d.Strength() <= 0 {
-		r.DefenderDestroyed = true
-		s.remove(d)
+	takeLosses(attackers, attackerLoss)
+	takeLosses(defenders, defenderLoss)
+	for _, x := range attackers {
+		x.Spent = true
+		if x.Strength() <= 0 {
+			s.remove(x)
+		}
 	}
-	if u.Strength() <= 0 {
-		r.AttackerDestroyed = true
-		s.remove(u)
-	} else if r.DefenderDestroyed {
-		u.Pos = target
+	for _, x := range defenders {
+		if x.Strength() <= 0 {
+			s.remove(x)
+		}
 	}
+	r.DefenderDestroyed = d.Strength() <= 0
+	r.AttackerDestroyed = u.Strength() <= 0
+	s.addReport(r)
+	s.afterFight(u, d, target, o)
+	return r
+}
+
+func (s *State) addReport(r Report) {
 	s.Reports = append(s.Reports, r)
 	if len(s.Reports) > reportLimit {
 		s.Reports = s.Reports[len(s.Reports)-reportLimit:]
 	}
-	return r, nil
+}
+
+// fightLabel names the lead unit and how many others fought with it.
+func fightLabel(units []*Unit) string {
+	if len(units) == 1 {
+		return units[0].Short
+	}
+	return fmt.Sprintf("%s +%d", units[0].Short, len(units)-1)
 }
 
 func (s *State) rollPercent() int {
@@ -329,14 +371,15 @@ func (s *State) remove(u *Unit) {
 	}
 }
 
-// EndTurn takes objects under the active faction's units and passes the turn.
+// EndTurn takes objects under the active faction's companies and passes the
+// turn. Staffs don't capture.
 func (s *State) EndTurn() {
 	if s.Over {
 		return
 	}
 	f := s.Active
 	for _, u := range s.Units {
-		if u.Faction != f {
+		if u.Faction != f || u.Kind != Company {
 			continue
 		}
 		o := s.ObjectAt(u.Pos)
@@ -344,8 +387,8 @@ func (s *State) EndTurn() {
 			continue
 		}
 		o.Owner = f
-		if o.Kind == Hauptstadt {
-			s.finish(f, fmt.Sprintf("%s hat die gegnerische Hauptstadt %s erobert.", f, o.Name))
+		if o.Kind == Capital {
+			s.finish(f, fmt.Sprintf("%s captured the enemy capital %s.", f, o.Name))
 			return
 		}
 	}
@@ -366,18 +409,18 @@ func (s *State) finish(winner Faction, reason string) {
 
 func (s *State) decideByCount() {
 	cities, all := s.Holdings(Wehrmacht)
-	cityS, allS := s.Holdings(Sowjetunion)
+	cityS, allS := s.Holdings(SovietUnion)
 	switch {
 	case cities > cityS:
-		s.finish(Wehrmacht, fmt.Sprintf("Nach %d Runden hält die Wehrmacht mehr Städte.", MaxRounds))
+		s.finish(Wehrmacht, fmt.Sprintf("After %d rounds the Wehrmacht holds more cities.", MaxRounds))
 	case cityS > cities:
-		s.finish(Sowjetunion, fmt.Sprintf("Nach %d Runden hält die Sowjetunion mehr Städte.", MaxRounds))
+		s.finish(SovietUnion, fmt.Sprintf("After %d rounds the Soviet Union holds more cities.", MaxRounds))
 	case all > allS:
-		s.finish(Wehrmacht, "Städte gleich, die Wehrmacht hält mehr Objekte.")
+		s.finish(Wehrmacht, "Cities are even, the Wehrmacht holds more objects.")
 	case allS > all:
-		s.finish(Sowjetunion, "Städte gleich, die Sowjetunion hält mehr Objekte.")
+		s.finish(SovietUnion, "Cities are even, the Soviet Union holds more objects.")
 	default:
-		s.finish(NoFaction, "Unentschieden: gleich viele Städte und Objekte.")
+		s.finish(NoFaction, "Draw: equal cities and objects.")
 	}
 }
 

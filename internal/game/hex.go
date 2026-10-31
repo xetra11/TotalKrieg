@@ -1,9 +1,16 @@
 package game
 
+import "fmt"
+
 // Coord addresses a hex by column and row on a pointy-top grid with odd rows
 // shifted right.
 type Coord struct {
 	Col, Row int
+}
+
+// Name is the grid reference of a hex, as printed on staff maps.
+func (c Coord) Name() string {
+	return fmt.Sprintf("%c%d", 'A'+rune(c.Col), c.Row+1)
 }
 
 // oddRowNeighbors holds the neighbor offsets per row parity.
