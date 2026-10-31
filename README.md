@@ -5,9 +5,17 @@ Prototype in Go with [Ebitengine](https://ebitengine.org). The rules are in [doc
 
 ## Installing
 
-Tagged versions have a `TotalKrieg-setup.exe` under the repository's releases. It installs for the current user, without admin rights, and brings along the latest MiusMissionMaker release and Node.js. Only Mius-Front itself has to be installed.
+Download `TotalKrieg-setup.exe` from the repository's [releases](https://github.com/xetra11/TotalKrieg/releases). It installs for the current user, without admin rights, and brings along MiusMissionMaker and Node.js. Only Mius-Front itself has to be installed.
 
-The [Installer workflow](.github/workflows/installer.yml) runs on every push to `master` and keeps the installer as a build artifact. A pushed tag `v*` also publishes a release. Each run downloads the latest MiusMissionMaker release, so start the workflow by hand to pick up a new one.
+Every pushed tag `v*` runs the [Installer workflow](.github/workflows/installer.yml), which builds the installer with the latest MiusMissionMaker release and publishes it as a release of that tag:
+
+```bash
+git tag v1.2.3
+```
+
+```bash
+git push origin v1.2.3
+```
 
 To build the installer locally, with Go, Node.js and Inno Setup 6:
 
@@ -39,6 +47,12 @@ Options:
 ## Battles in Mius-Front
 
 Battles in Mius-Front need MiusMissionMaker, Node.js and the installed game. The game must be closed before the start. The battle dialog first shows the battle line-up, and you start Mius-Front from there. When the battle ends, TotalKrieg reads the outcome and losses by itself, shows them per platoon and books them with "Apply result". If that fails, you enter the outcome by hand. Generated scenarios and missions land in the `missions/` folder, for an installed game in `%LOCALAPPDATA%\TotalKrieg\missions`.
+
+TotalKrieg needs the Mius-Front folder to start a battle and to read its result. It expects the default Steam path `C:/Program Files (x86)/Steam/steamapps/common/Graviteam Tactics Mius-Front`. If the game is somewhere else, for example in another Steam library, pass the folder that contains `starter_x64.exe` with `-miusgame`. For an installed game, add it to the end of **Target** in the shortcut's properties, after the closing quote:
+
+```text
+"%LOCALAPPDATA%\Programs\TotalKrieg\TotalKrieg.exe" -miusgame "D:\SteamLibrary\steamapps\common\Graviteam Tactics Mius-Front"
+```
 
 ## Controls
 
