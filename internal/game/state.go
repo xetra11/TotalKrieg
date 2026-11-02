@@ -45,6 +45,16 @@ type State struct {
 	counts        [2][unitKindCount]int
 	callsignsUsed [2]int
 	surnamePool   [2][]string
+	
+	// moves records unit movements for animation
+	moves []UnitMove
+}
+
+// UnitMove records one unit's movement for animation purposes.
+type UnitMove struct {
+	Unit *Unit
+	From Coord
+	To   Coord
 }
 
 // New starts a match. The first faction opens every round.
@@ -228,23 +238,32 @@ func (s *State) Reachable(u *Unit) map[Coord]int {
 }
 
 // Move relocates a unit and spends its movement. Moving onto an enemy is an
-// attack, see AttackTargets.
-func (s *State) Move(u *Unit, to Coord) error {
+// attack, see AttackTargets. It returns the starting position for animation.
+func (s *State) Move(u *Unit, to Coord) (from Coord, err error) {
+	from = u.Pos
 	switch {
 	case s.Over:
-		return errors.New("The match is over.")
+		return from, errors.New("The match is over.")
 	case u.Faction != s.Active:
-		return errors.New("This unit is not yours.")
+		return from, errors.New("This unit is not yours.")
 	case u.MovesLeft() == 0:
-		return errors.New("This unit can't move any more this round.")
+		return from, errors.New("This unit can't move any more this round.")
 	}
 	d, ok := s.Reachable(u)[to]
 	if !ok {
-		return errors.New("This hex is out of reach.")
+		return from, errors.New("This hex is out of reach.")
 	}
 	u.Pos = to
 	u.Used += d
-	return nil
+	s.moves = append(s.moves, UnitMove{Unit: u, From: from, To: to})
+	return from, nil
+}
+
+// TakeMoves returns and clears the recorded moves.
+func (s *State) TakeMoves() []UnitMove {
+	moves := s.moves
+	s.moves = nil
+	return moves
 }
 
 // AttackTargets maps each enemy hex the unit can move onto to the hex it

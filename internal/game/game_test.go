@@ -156,7 +156,7 @@ func TestRecruitRules(t *testing.T) {
 	if u.MovesLeft() != 0 {
 		t.Error("new unit can move")
 	}
-	if err := s.Move(u, u.Pos.Neighbors()[0]); err == nil {
+	if _, err := s.Move(u, u.Pos.Neighbors()[0]); err == nil {
 		t.Error("fresh unit moved")
 	}
 }
@@ -220,16 +220,16 @@ func TestEnemyBlocksOwnUnitsPass(t *testing.T) {
 func TestMovementBudget(t *testing.T) {
 	s := openField()
 	u := linked(s, Wehrmacht, Coord{5, 5})
-	if err := s.Move(u, Coord{6, 5}); err != nil {
+	if _, err := s.Move(u, Coord{6, 5}); err != nil {
 		t.Fatal(err)
 	}
 	if u.MovesLeft() != 2 {
 		t.Fatalf("moves left %d, want 2", u.MovesLeft())
 	}
-	if err := s.Move(u, Coord{8, 5}); err != nil {
+	if _, err := s.Move(u, Coord{8, 5}); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Move(u, Coord{9, 5}); err == nil {
+	if _, err := s.Move(u, Coord{9, 5}); err == nil {
 		t.Error("moved past the budget")
 	}
 	s.EndTurn()
@@ -243,7 +243,7 @@ func TestMoveOntoEnemyIsNoPlainMove(t *testing.T) {
 	s := openField()
 	u := linked(s, Wehrmacht, Coord{5, 5})
 	s.Place(SovietUnion, Company, Coord{6, 5})
-	if err := s.Move(u, Coord{6, 5}); err == nil {
+	if _, err := s.Move(u, Coord{6, 5}); err == nil {
 		t.Error("moved onto an enemy without a fight")
 	}
 }

@@ -36,12 +36,13 @@ const (
 
 // Options configures a run.
 type Options struct {
-	Seed     uint64        // 0 picks a random map
-	Faction  *game.Faction // set to skip the menu
-	Autoplay int           // AI turns to play before the first frame
-	Shot     string        // write the first frames to this PNG and quit
-	Mission  mission.Config
-	SaveDir  string // campaign folder, empty uses the user's config folder
+	Seed        uint64        // 0 picks a random map
+	Faction     *game.Faction // set to skip the menu
+	Autoplay    int           // AI turns to play before the first frame
+	Shot        string        // write the first frames to this PNG and quit
+	Mission     mission.Config
+	SaveDir     string // campaign folder, empty uses the user's config folder
+	NoAnimation bool   // skip animations, for tests
 }
 
 // App is the running program.
@@ -71,6 +72,9 @@ type App struct {
 	// script steps through a commit or an AI turn, which stops at every fight.
 	script     func() (*game.Fight, bool)
 	stopScript func()
+	
+	animations animationQueue
+	moveQueue  []moveStep // moves to animate sequentially
 
 	sets      [2]*symbols.Set
 	regular   *text.GoTextFaceSource
@@ -346,9 +350,13 @@ func (a *App) toggleOrg() {
 // tick steps the running turn and lets the AI start once the delay ran out.
 // Fights and routs wait for the player.
 func (a *App) tick() {
+	a.animations.tick()
 	a.pollMission()
 	a.pollResult()
 	if a.st == nil || a.st.Over || a.attack != nil || a.routing() {
+		return
+	}
+	if a.waitForAnimations() {
 		return
 	}
 	if a.script != nil {
@@ -379,8 +387,18 @@ func (a *App) next() {
 	}
 	a.clearSelection()
 	a.message = "The orders are carried out."
+	a.recordPlayerMoves()
 	a.startScript(a.st.CommitTurn())
 	a.afterTurn()
+}
+
+// recordPlayerMoves captures the planned movements before execution.
+func (a *App) recordPlayerMoves() {
+	for _, o := range a.st.Orders() {
+		if !o.Attack {
+			a.recordMove(o.Unit, o.Unit.Pos, o.To)
+		}
+	}
 }
 
 func (a *App) startScript(turn iter.Seq[*game.Fight]) {
@@ -401,6 +419,17 @@ func (a *App) stepScript() {
 			a.message = "The AI is moving."
 		}
 		a.afterTurn()
+		return
+	}
+	// nil fight means moves are ready to animate
+	if fight == nil {
+		if !a.opts.NoAnimation {
+			for _, m := range a.st.TakeMoves() {
+				a.animations.startMove(m.Unit, m.From, m.To)
+			}
+		} else {
+			a.st.TakeMoves() // clear moves
+		}
 		return
 	}
 	a.attack = fight

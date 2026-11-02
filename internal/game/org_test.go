@@ -79,7 +79,7 @@ func TestMovingTheStaffRestoresTheLink(t *testing.T) {
 		s.remove(x.Token)
 	}
 	c.Pos = Coord{10, 5}
-	if err := s.Move(staff, Coord{6, 5}); err != nil {
+	if _, err := s.Move(staff, Coord{6, 5}); err != nil {
 		t.Fatal(err)
 	}
 	if !c.Linked() || c.MovesLeft() != 3 {

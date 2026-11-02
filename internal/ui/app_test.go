@@ -12,7 +12,7 @@ import (
 
 func newApp(t *testing.T, f game.Faction) *App {
 	t.Helper()
-	a, err := New(Options{Seed: 7, Faction: &f})
+	a, err := New(Options{Seed: 7, Faction: &f, NoAnimation: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func TestMapFitsMapArea(t *testing.T) {
 }
 
 func TestMenuStartsChosenFaction(t *testing.T) {
-	a, err := New(Options{Seed: 7})
+	a, err := New(Options{Seed: 7, NoAnimation: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,11 +113,12 @@ func TestPlayerTurnByClicks(t *testing.T) {
 	if staff.Pos != to || st.Active != game.SovietUnion {
 		t.Fatalf("staff at %v, active %v", staff.Pos, st.Active)
 	}
-	for i := 0; i < aiDelayFrames; i++ {
+	// Wait for AI turn to complete
+	for i := 0; i < 100 && st.Active != game.Wehrmacht; i++ {
 		a.tick()
 	}
 	if st.Active != game.Wehrmacht || st.Round != 2 {
-		t.Fatalf("after AI: active %v, round %d", st.Active, st.Round)
+		t.Fatalf("after AI: active %v, round %d, script=%v", st.Active, st.Round, a.script != nil)
 	}
 
 	clickHexAt(a, city.Pos)
@@ -444,7 +445,7 @@ func TestLostAttackLetsThePlayerFlee(t *testing.T) {
 func aiFight(t *testing.T, seed uint64) (a *App, own, foe *game.Unit) {
 	t.Helper()
 	f := game.Wehrmacht
-	a, err := New(Options{Seed: seed, Faction: &f})
+	a, err := New(Options{Seed: seed, Faction: &f, NoAnimation: true})
 	if err != nil {
 		t.Fatal(err)
 	}

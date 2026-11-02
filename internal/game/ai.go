@@ -27,7 +27,7 @@ func (s *State) PlayTurn() {
 }
 
 // AITurn plays the active faction's turn with the AI priorities from the GDD:
-// defend, attack, capture, raise units. It stops at every fight.
+// defend, attack, capture, raise units. It stops at every fight and yields moves.
 func (s *State) AITurn() iter.Seq[*Fight] {
 	return func(yield func(*Fight) bool) {
 		if s.Over {
@@ -36,15 +36,19 @@ func (s *State) AITurn() iter.Seq[*Fight] {
 		s.fleeAll()
 		s.aiRecruit()
 		s.aiMoveStaffs()
+		s.yieldMoves(yield)
 		s.aiDefend()
+		s.yieldMoves(yield)
 		if !s.aiAttack(yield) {
 			return
 		}
 		s.aiAdvance()
+		s.yieldMoves(yield)
 		if !s.aiAttack(yield) {
 			return
 		}
 		s.aiMoveStaffs()
+		s.yieldMoves(yield)
 		s.EndTurn()
 	}
 }
@@ -160,8 +164,9 @@ func (s *State) nearestFreeUnit(c Coord, busy map[*Unit]bool) *Unit {
 	return best
 }
 
-// moveToward moves a unit to the reachable hex nearest the target.
-func (s *State) moveToward(u *Unit, target Coord) {
+// moveToward moves a unit to the reachable hex nearest the target and returns
+// whether it moved.
+func (s *State) moveToward(u *Unit, target Coord) (from Coord, moved bool) {
 	bestPos, bestDist := u.Pos, Distance(u.Pos, target)
 	for _, c := range sortedCoords(s.Reachable(u)) {
 		if d := Distance(c, target); d < bestDist {
@@ -169,8 +174,10 @@ func (s *State) moveToward(u *Unit, target Coord) {
 		}
 	}
 	if bestPos != u.Pos {
-		s.Move(u, bestPos)
+		from, _ = s.Move(u, bestPos)
+		return from, true
 	}
+	return u.Pos, false
 }
 
 // sortedCoords keeps AI moves deterministic for a given seed.
@@ -238,4 +245,11 @@ func (s *State) aiAttack(yield func(*Fight) bool) bool {
 		}
 	}
 	return true
+}
+
+// yieldMoves yields pending moves for animation.
+func (s *State) yieldMoves(yield func(*Fight) bool) {
+	if len(s.moves) > 0 {
+		yield(nil)
+	}
 }
