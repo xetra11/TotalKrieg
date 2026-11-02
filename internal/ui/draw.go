@@ -10,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 
+	"github.com/xetra11/TotalKrieg/internal/campaign"
 	"github.com/xetra11/TotalKrieg/internal/game"
 )
 
@@ -536,13 +537,118 @@ func (a *App) drawEnd(dst *ebiten.Image) {
 	a.label(dst, st.Reason, mapW/2, r.y+120, 17, colMuted, false, text.AlignCenter)
 	b := newGameButton()
 	fillRect(dst, b, colAmber)
-	a.label(dst, "New match", b.x+b.w/2, b.y+13, 18, colDeep, true, text.AlignCenter)
+	a.label(dst, "Back to menu", b.x+b.w/2, b.y+13, 18, colDeep, true, text.AlignCenter)
 }
 
 func (a *App) drawMenu(dst *ebiten.Image) {
-	a.label(dst, "TotalKrieg", screenW/2, 150, 72, colText, true, text.AlignCenter)
-	a.label(dst, "Operational game on a hex map, prototype", screenW/2, 250, 22, colMuted, false, text.AlignCenter)
-	a.label(dst, "Choose your side", screenW/2, 310, 20, colAmber, true, text.AlignCenter)
+	switch a.menu {
+	case menuMain:
+		a.drawMenuMain(dst)
+	case menuNewName:
+		a.drawMenuNewName(dst)
+	case menuNewFaction:
+		a.drawMenuNewFaction(dst)
+	}
+}
+
+func (a *App) drawMenuMain(dst *ebiten.Image) {
+	a.label(dst, "TotalKrieg", screenW/2, 100, 72, colText, true, text.AlignCenter)
+	a.label(dst, "Operational game on a hex map", screenW/2, 200, 22, colMuted, false, text.AlignCenter)
+
+	b := newCampaignButton()
+	fillRect(dst, b, colAmber)
+	a.label(dst, "New campaign", b.x+b.w/2, b.y+20, 20, colDeep, true, text.AlignCenter)
+
+	if len(a.saves) == 0 {
+		a.label(dst, "No campaigns yet. Start a new one.", screenW/2, 380, 16, colMuted, false, text.AlignCenter)
+	} else {
+		a.label(dst, "Continue campaign", screenW/2, 370, 18, colAmber, true, text.AlignCenter)
+		for i, s := range a.saves {
+			if i >= 8 {
+				break
+			}
+			a.drawSaveRow(dst, s, saveButton(i))
+		}
+	}
+	if a.saveErr != "" {
+		a.wrapped(dst, "Error: "+a.saveErr, 40, 800, screenW-80, 14, colRed)
+	}
+}
+
+func (a *App) drawSaveRow(dst *ebiten.Image, s campaign.Summary, r rect) {
+	bg := colPanel
+	if s.Over {
+		bg = colDeep
+	}
+	fillRect(dst, r, bg)
+	strokeRect(dst, r, 1, colLine)
+
+	y := r.y + 10
+	a.label(dst, s.Name, r.x+16, y, 16, colText, true, text.AlignStart)
+	status := fmt.Sprintf("%s, Round %d", s.Faction, s.Round)
+	if s.Over {
+		status += " — Finished"
+	}
+	a.label(dst, status, r.x+16, y+20, 13, colMuted, false, text.AlignStart)
+	a.label(dst, s.Updated.Format("2006-01-02 15:04"), r.x+r.w-16, y+6, 13, colMuted, false, text.AlignEnd)
+}
+
+func (a *App) drawMenuNewName(dst *ebiten.Image) {
+	a.label(dst, "TotalKrieg", screenW/2, 100, 72, colText, true, text.AlignCenter)
+	a.label(dst, "New Campaign", screenW/2, 210, 28, colAmber, true, text.AlignCenter)
+
+	b := menuBackButton()
+	strokeRect(dst, b, 2, colMuted)
+	a.label(dst, "← Back", b.x+b.w/2, b.y+12, 15, colText, true, text.AlignCenter)
+
+	a.label(dst, "Enter campaign name:", screenW/2, 280, 18, colText, false, text.AlignCenter)
+	
+	// Name input field
+	field := campaignNameField()
+	fillRect(dst, field, colDeep)
+	strokeRect(dst, field, 2, colAmber)
+	
+	displayName := a.campaignName
+	if displayName == "" {
+		displayName = "My Campaign"
+		a.label(dst, displayName, field.x+field.w/2, field.y+20, 24, colMuted, false, text.AlignCenter)
+	} else {
+		a.label(dst, displayName, field.x+field.w/2, field.y+20, 24, colText, false, text.AlignCenter)
+	}
+	
+	// Blinking cursor
+	if a.frames%60 < 30 && displayName != "" {
+		tw, _ := text.Measure(displayName, &text.GoTextFace{Source: a.regular, Size: 24}, 0)
+		cursorX := field.x + field.w/2 + tw/2 + 4
+		vector.StrokeLine(dst, float32(cursorX), float32(field.y+18), float32(cursorX), float32(field.y+42), 2, colAmber, true)
+	}
+
+	// Continue button
+	cont := menuContinueButton()
+	enabled := a.campaignName != ""
+	if enabled {
+		fillRect(dst, cont, colAmber)
+		a.label(dst, "Continue", cont.x+cont.w/2, cont.y+16, 18, colDeep, true, text.AlignCenter)
+	} else {
+		fillRect(dst, cont, colLine)
+		a.label(dst, "Continue", cont.x+cont.w/2, cont.y+16, 18, colDisabled, true, text.AlignCenter)
+	}
+
+	if a.saveErr != "" {
+		a.label(dst, a.saveErr, screenW/2, 650, 14, colRed, false, text.AlignCenter)
+	}
+	
+	a.label(dst, "Type your campaign name and press Continue", screenW/2, 700, 14, colMuted, false, text.AlignCenter)
+}
+
+func (a *App) drawMenuNewFaction(dst *ebiten.Image) {
+	a.label(dst, "TotalKrieg", screenW/2, 100, 72, colText, true, text.AlignCenter)
+	a.label(dst, "Choose your side", screenW/2, 210, 24, colAmber, true, text.AlignCenter)
+
+	b := menuBackButton()
+	strokeRect(dst, b, 2, colMuted)
+	a.label(dst, "← Back", b.x+b.w/2, b.y+12, 15, colText, true, text.AlignCenter)
+
 	for _, f := range []game.Faction{game.Wehrmacht, game.SovietUnion} {
 		r := factionButton(f)
 		fillRect(dst, r, colPanel)

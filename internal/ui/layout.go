@@ -84,3 +84,24 @@ func factionButton(f game.Faction) rect {
 func newGameButton() rect {
 	return rect{mapW/2 - 110, 500, 220, 48}
 }
+
+func newCampaignButton() rect {
+	return rect{screenW/2 - 200, 280, 400, 56}
+}
+
+func menuBackButton() rect {
+	return rect{40, 40, 120, 40}
+}
+
+func menuContinueButton() rect {
+	return rect{screenW/2 - 100, 550, 200, 50}
+}
+
+func campaignNameField() rect {
+	return rect{screenW/2 - 300, 320, 600, 60}
+}
+
+// saveButton is one row of the campaign list in the main menu.
+func saveButton(i int) rect {
+	return rect{screenW/2 - 380, 400 + float64(i)*54, 760, 46}
+}

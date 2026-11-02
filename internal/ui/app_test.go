@@ -64,6 +64,10 @@ func TestMenuStartsChosenFaction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Navigate to new campaign menu
+	clickRect(a, newCampaignButton())
+	a.campaignName = "Test Campaign"
+	clickRect(a, menuContinueButton())
 	clickRect(a, factionButton(game.SovietUnion))
 	if a.st == nil || a.st.First != game.SovietUnion {
 		t.Fatalf("state = %+v", a.st)

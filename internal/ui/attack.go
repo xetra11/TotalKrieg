@@ -134,6 +134,7 @@ func (a *App) finishFight(u *game.Unit, r game.Report, err error) {
 		a.selectUnit(u)
 	}
 	a.showRout()
+	a.autosave()
 }
 
 func (a *App) routing() bool {

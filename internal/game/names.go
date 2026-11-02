@@ -52,6 +52,7 @@ var regimentBase = [2]int{Wehrmacht: 513, SovietUnion: 10}
 
 func (s *State) newElement(f Faction, k UnitKind, parent *Element, name, short string) *Element {
 	e := &Element{Faction: f, Kind: k, Name: name, Short: short, Parent: parent}
+	s.elements = append(s.elements, e)
 	if parent != nil {
 		parent.Children = append(parent.Children, e)
 	}

@@ -38,7 +38,9 @@ type State struct {
 
 	orders        []*Order
 	routs         []*Rout
+	pcg           *rand.PCG
 	rng           *rand.Rand
+	elements      []*Element
 	nextID        int
 	counts        [2][unitKindCount]int
 	callsignsUsed [2]int
@@ -47,13 +49,15 @@ type State struct {
 
 // New starts a match. The first faction opens every round.
 func New(seed uint64, first Faction) *State {
+	pcg := rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)
 	s := &State{
 		Seed:   seed,
 		First:  first,
 		Round:  1,
 		Active: first,
 		Winner: NoFaction,
-		rng:    rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)),
+		pcg:    pcg,
+		rng:    rand.New(pcg),
 	}
 	s.Objects = generateObjects(s.rng)
 	for _, o := range s.Objects {

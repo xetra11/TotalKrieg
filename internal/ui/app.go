@@ -16,6 +16,7 @@ import (
 	"golang.org/x/image/font/gofont/gobold"
 	"golang.org/x/image/font/gofont/goregular"
 
+	"github.com/xetra11/TotalKrieg/internal/campaign"
 	"github.com/xetra11/TotalKrieg/internal/game"
 	"github.com/xetra11/TotalKrieg/internal/mission"
 	"github.com/xetra11/TotalKrieg/internal/symbols"
@@ -24,6 +25,15 @@ import (
 // aiDelayFrames keeps the board readable before the AI answers.
 const aiDelayFrames = 30
 
+// menuMode is the page of the main menu.
+type menuMode int
+
+const (
+	menuMain menuMode = iota
+	menuNewName
+	menuNewFaction
+)
+
 // Options configures a run.
 type Options struct {
 	Seed     uint64        // 0 picks a random map
@@ -31,12 +41,20 @@ type Options struct {
 	Autoplay int           // AI turns to play before the first frame
 	Shot     string        // write the first frames to this PNG and quit
 	Mission  mission.Config
+	SaveDir  string // campaign folder, empty uses the user's config folder
 }
 
 // App is the running program.
 type App struct {
 	opts Options
 	st   *game.State
+
+	store        *campaign.Store
+	current      *campaign.Record
+	saves        []campaign.Summary
+	menu         menuMode
+	saveErr      string
+	campaignName string // name being entered for new campaign
 
 	selUnit *game.Unit
 	selCity *game.Object
@@ -63,11 +81,23 @@ type App struct {
 
 	frames int
 	shot   bool
+
+	closing bool
 }
 
 // New creates the app and, when a faction is set, starts the match.
 func New(opts Options) (*App, error) {
 	a := &App{opts: opts, symbolImg: map[symbolKey]*ebiten.Image{}}
+	dir := opts.SaveDir
+	if dir == "" {
+		if d, err := campaign.DefaultDir(); err == nil {
+			dir = d
+		}
+	}
+	if dir != "" {
+		a.store = campaign.NewStore(dir)
+		a.refreshSaves()
+	}
 	var err error
 	if a.sets[game.Wehrmacht], err = symbols.Load("wehrmacht"); err != nil {
 		return nil, err
@@ -91,7 +121,7 @@ func New(opts Options) (*App, error) {
 		}
 	}
 	if opts.Faction != nil {
-		a.start(*opts.Faction)
+		a.startNew(*opts.Faction, "")
 		for i := 0; i < opts.Autoplay && !a.st.Over; i++ {
 			a.st.PlayTurn()
 		}
@@ -100,7 +130,12 @@ func New(opts Options) (*App, error) {
 	return a, nil
 }
 
-func (a *App) start(f game.Faction) {
+// startNew begins a fresh campaign and writes it at once, so it shows up in the
+// menu even if the program is closed right away.
+func (a *App) startNew(f game.Faction, name string) {
+	if name == "" {
+		name = f.String() + " campaign"
+	}
 	seed := a.opts.Seed
 	if seed == 0 {
 		seed = rand.Uint64()
@@ -108,8 +143,92 @@ func (a *App) start(f game.Faction) {
 	a.endScript()
 	a.st = game.New(seed, f)
 	a.clearSelection()
+	a.menu = menuMain
 	a.message = "Choose a unit or a city."
 	a.mapDirty = true
+	a.campaignName = ""
+	
+	// Create the campaign file only once
+	if a.store != nil && a.opts.Shot == "" {
+		rec, err := a.store.New(name, a.st)
+		if err != nil {
+			a.saveErr = err.Error()
+			return
+		}
+		a.current = &rec
+		a.saveErr = ""
+		a.refreshSaves()
+	}
+}
+
+// autosave writes the running campaign. It stays away from a turn that is still
+// being carried out, so the file always holds a state the menu can continue.
+func (a *App) autosave() {
+	if a.store == nil || a.st == nil || a.current == nil || a.script != nil || a.opts.Shot != "" {
+		return
+	}
+	snap, err := a.st.Snapshot()
+	if err != nil {
+		a.saveErr = err.Error()
+		return
+	}
+	a.current.State = snap
+	if err := a.store.Save(a.current); err != nil {
+		a.saveErr = err.Error()
+		return
+	}
+	a.saveErr = ""
+}
+
+// refreshSaves reloads the campaign list for the menu.
+func (a *App) refreshSaves() {
+	if a.store == nil {
+		a.saves = nil
+		return
+	}
+	saves, err := a.store.List()
+	if err != nil {
+		a.saveErr = err.Error()
+		return
+	}
+	a.saves = saves
+}
+
+// continueCampaign loads a save and puts the player back on the map.
+func (a *App) continueCampaign(id string) {
+	if a.store == nil {
+		return
+	}
+	rec, err := a.store.Load(id)
+	if err != nil {
+		a.saveErr = err.Error()
+		return
+	}
+	st, err := game.Restore(rec.State)
+	if err != nil {
+		a.saveErr = err.Error()
+		return
+	}
+	a.endScript()
+	a.st = st
+	a.current = &rec
+	a.clearSelection()
+	a.mapDirty = true
+	a.message = fmt.Sprintf("Campaign continued, round %d.", st.Round)
+	a.saveErr = ""
+	a.showRout()
+}
+
+// toMenu saves the running campaign and returns to the main menu.
+func (a *App) toMenu() {
+	a.autosave()
+	a.endScript()
+	a.st = nil
+	a.current = nil
+	a.clearSelection()
+	a.menu = menuMain
+	a.message = ""
+	a.refreshSaves()
 }
 
 func (a *App) clearSelection() {
@@ -126,6 +245,18 @@ func (a *App) Update() error {
 	a.frames++
 	if a.shot {
 		return ebiten.Termination
+	}
+	if a.closing && !ebiten.IsWindowBeingClosed() {
+		a.closing = false
+	}
+	if ebiten.IsWindowBeingClosed() && !a.closing {
+		a.closing = true
+		a.autosave()
+		return ebiten.Termination
+	}
+	// Handle text input in campaign name menu
+	if a.st == nil && a.menu == menuNewName {
+		a.handleNameInput()
 	}
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		x, y := ebiten.CursorPosition()
@@ -144,6 +275,29 @@ func (a *App) Update() error {
 	return nil
 }
 
+// handleNameInput processes keyboard input for the campaign name.
+func (a *App) handleNameInput() {
+	// Handle backspace
+	if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+		if len(a.campaignName) > 0 {
+			a.campaignName = a.campaignName[:len(a.campaignName)-1]
+		}
+		return
+	}
+	
+	// Get text input from ebiten
+	runes := ebiten.AppendInputChars(nil)
+	for _, r := range runes {
+		// Allow letters, numbers, spaces, and basic punctuation
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || 
+		   (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_' {
+			if len(a.campaignName) < 50 {
+				a.campaignName += string(r)
+			}
+		}
+	}
+}
+
 // confirm resolves an open fight, otherwise it ends the turn.
 func (a *App) confirm() {
 	switch {
@@ -159,6 +313,11 @@ func (a *App) confirm() {
 // stepped back from.
 func (a *App) cancel() {
 	switch {
+	case a.st == nil && a.menu == menuNewFaction:
+		a.menu = menuNewName
+	case a.st == nil && a.menu == menuNewName:
+		a.campaignName = ""
+		a.menu = menuMain
 	case a.routing():
 	case a.battle != nil:
 		if a.battle.done == nil && !a.battle.running {
@@ -207,6 +366,12 @@ func (a *App) tick() {
 	}
 }
 
+// afterTurn saves after a complete turn, so the file always holds a state that
+// can be continued.
+func (a *App) afterTurn() {
+	a.autosave()
+}
+
 // next commits the player's orders.
 func (a *App) next() {
 	if !a.humanTurn() || a.script != nil {
@@ -215,6 +380,7 @@ func (a *App) next() {
 	a.clearSelection()
 	a.message = "The orders are carried out."
 	a.startScript(a.st.CommitTurn())
+	a.afterTurn()
 }
 
 func (a *App) startScript(turn iter.Seq[*game.Fight]) {
@@ -234,6 +400,7 @@ func (a *App) stepScript() {
 		} else if !a.st.Over {
 			a.message = "The AI is moving."
 		}
+		a.afterTurn()
 		return
 	}
 	a.attack = fight
@@ -254,9 +421,7 @@ func (a *App) click(x, y float64) {
 	case a.st == nil:
 		a.clickMenu(x, y)
 	case a.st.Over && newGameButton().contains(x, y):
-		a.endScript()
-		a.st = nil
-		a.clearSelection()
+		a.toMenu()
 	case a.battle != nil:
 		a.clickBattleDialog(x, y)
 	case a.attack != nil:
@@ -279,9 +444,56 @@ func (a *App) click(x, y float64) {
 }
 
 func (a *App) clickMenu(x, y float64) {
+	switch a.menu {
+	case menuMain:
+		a.clickMenuMain(x, y)
+	case menuNewName:
+		a.clickMenuNewName(x, y)
+	case menuNewFaction:
+		a.clickMenuNewFaction(x, y)
+	}
+}
+
+func (a *App) clickMenuMain(x, y float64) {
+	if newCampaignButton().contains(x, y) {
+		a.campaignName = ""
+		a.menu = menuNewName
+		return
+	}
+	for i, s := range a.saves {
+		if saveButton(i).contains(x, y) {
+			a.continueCampaign(s.ID)
+			return
+		}
+	}
+}
+
+func (a *App) clickMenuNewName(x, y float64) {
+	if menuBackButton().contains(x, y) {
+		a.campaignName = ""
+		a.menu = menuMain
+		return
+	}
+	if menuContinueButton().contains(x, y) {
+		if a.campaignName == "" {
+			a.saveErr = "Please enter a campaign name."
+			return
+		}
+		a.menu = menuNewFaction
+		a.saveErr = ""
+		return
+	}
+}
+
+func (a *App) clickMenuNewFaction(x, y float64) {
+	if menuBackButton().contains(x, y) {
+		a.menu = menuNewName
+		return
+	}
 	for _, f := range []game.Faction{game.Wehrmacht, game.SovietUnion} {
 		if factionButton(f).contains(x, y) {
-			a.start(f)
+			a.startNew(f, a.campaignName)
+			return
 		}
 	}
 }
