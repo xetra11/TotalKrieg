@@ -110,6 +110,10 @@ func TestPlayerTurnByClicks(t *testing.T) {
 	clickHexAt(a, to)
 
 	clickRect(a, nextButton())
+	// Wait for turn to complete
+	for i := 0; i < 100 && a.script != nil; i++ {
+		a.tick()
+	}
 	if staff.Pos != to || st.Active != game.SovietUnion {
 		t.Fatalf("staff at %v, active %v", staff.Pos, st.Active)
 	}

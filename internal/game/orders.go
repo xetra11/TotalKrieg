@@ -80,20 +80,31 @@ func (s *State) CommitTurn() iter.Seq[*Fight] {
 	return func(yield func(*Fight) bool) {
 		orders := s.orders
 		s.orders = nil
+		// Move companies first
 		for _, o := range orders {
 			if o.Unit.Kind == Company {
 				s.carryOut(o)
 			}
 		}
+		// Yield company moves for animation
+		if len(s.moves) > 0 {
+			yield(nil)
+		}
+		// Execute attacks
 		for _, o := range orders {
 			if o.Attack && s.CanAttack(o.Unit, o.To) == nil && !s.fight(o.Unit, o.To, yield) {
 				return
 			}
 		}
+		// Move staffs last
 		for _, o := range orders {
 			if o.Unit.Kind != Company {
 				s.carryOut(o)
 			}
+		}
+		// Yield staff moves for animation
+		if len(s.moves) > 0 {
+			yield(nil)
 		}
 		s.EndTurn()
 	}
@@ -101,8 +112,11 @@ func (s *State) CommitTurn() iter.Seq[*Fight] {
 
 func (s *State) carryOut(o *Order) {
 	if !o.Attack && s.UnitAt(o.To) == nil {
+		from := o.Unit.Pos
 		o.Unit.Pos = o.To
 		o.Unit.Used = o.Unit.Allowance()
+		// Record for animation
+		s.moves = append(s.moves, UnitMove{Unit: o.Unit, From: from, To: o.To})
 	}
 }
 

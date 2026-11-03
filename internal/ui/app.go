@@ -387,18 +387,8 @@ func (a *App) next() {
 	}
 	a.clearSelection()
 	a.message = "The orders are carried out."
-	a.recordPlayerMoves()
 	a.startScript(a.st.CommitTurn())
 	a.afterTurn()
-}
-
-// recordPlayerMoves captures the planned movements before execution.
-func (a *App) recordPlayerMoves() {
-	for _, o := range a.st.Orders() {
-		if !o.Attack {
-			a.recordMove(o.Unit, o.Unit.Pos, o.To)
-		}
-	}
 }
 
 func (a *App) startScript(turn iter.Seq[*game.Fight]) {

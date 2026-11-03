@@ -91,6 +91,9 @@ func TestMovedCompanySupportsTheAttack(t *testing.T) {
 	}
 	var fights int
 	for f := range s.CommitTurn() {
+		if f == nil {
+			continue // skip animation yields
+		}
 		fights++
 		attackers, _ := s.Engagement(f.Unit, f.Target)
 		if len(attackers) != 2 {
@@ -116,6 +119,9 @@ func TestStaffMovesAfterTheAttacks(t *testing.T) {
 	}
 	moved := staff.Pos
 	for f := range s.CommitTurn() {
+		if f == nil {
+			continue // skip animation yields
+		}
 		if staff.Pos != moved || f.Unit != u {
 			t.Errorf("staff at %v during the fight", staff.Pos)
 		}
@@ -147,6 +153,9 @@ func TestResolvedFightIsNotFoughtAgain(t *testing.T) {
 		t.Fatal(err)
 	}
 	for f := range s.CommitTurn() {
+		if f == nil {
+			continue // skip animation yields
+		}
 		f.Resolved = true
 	}
 	if len(s.Reports) != 0 {
@@ -162,6 +171,9 @@ func TestAITurnStopsAtItsFights(t *testing.T) {
 	setStrength(foe, 6)
 	fights := 0
 	for f := range s.AITurn() {
+		if f == nil {
+			continue // skip animation yields
+		}
 		fights++
 		if f.Unit != foe || f.Target != own.Pos || s.Active != SovietUnion {
 			t.Errorf("fight %+v", f)
