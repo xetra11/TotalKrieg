@@ -36,12 +36,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: ./installer/build.ps1 -Version $env:GITHUB_REF_NAME.TrimStart('v')
 
-      # the file name stays the same, so a "latest" link always works
       - name: Publish
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           MISSIONMAKER: ${{ steps.build.outputs.missionmaker }}
         run: |
-          gh release create $env:GITHUB_REF_NAME dist/TotalKrieg-setup.exe --title $env:GITHUB_REF_NAME --generate-notes --notes "Includes MiusMissionMaker $env:MISSIONMAKER." ||
-            gh release upload $env:GITHUB_REF_NAME dist/TotalKrieg-setup.exe --clobber
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $installer = "dist/totalkrieg_$version.exe"
+          gh release create $env:GITHUB_REF_NAME $installer --title $env:GITHUB_REF_NAME --generate-notes --notes "Includes MiusMissionMaker $env:MISSIONMAKER." ||
+            gh release upload $env:GITHUB_REF_NAME $installer --clobber

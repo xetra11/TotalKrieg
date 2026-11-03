@@ -1,4 +1,4 @@
-# Builds dist/TotalKrieg-setup.exe: the game, the latest MiusMissionMaker release
+# Builds dist/totalkrieg_<version>.exe: the game, the latest MiusMissionMaker release
 # and the Node.js from the PATH. Needs Go, Node.js and Inno Setup 6.
 # Run from anywhere: installer/build.ps1 -Version 1.2.3
 param([string]$Version = '0.0.0')

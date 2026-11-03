@@ -1,4 +1,4 @@
-; Packs dist/app into the installer. installer/build.ps1 fills that folder first.
+; Packs dist/app into totalkrieg_<version>.exe. installer/build.ps1 fills that folder first.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -13,7 +13,7 @@ DefaultDirName={autopf}\TotalKrieg
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir=..\dist
-OutputBaseFilename=TotalKrieg-setup
+OutputBaseFilename=totalkrieg_{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
