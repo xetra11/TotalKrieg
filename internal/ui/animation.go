@@ -73,6 +73,21 @@ func (q *animationQueue) clear() {
 	q.delay = 0
 }
 
+// positionOf returns where a unit should be drawn. A unit that is still queued
+// stays at its starting hex until its turn comes, so it doesn't flash on the
+// target hex before it moves there.
+func (q *animationQueue) positionOf(u *game.Unit) (float64, float64) {
+	if q.current != nil && q.current.unit == u {
+		return q.current.position()
+	}
+	for i := range q.pending {
+		if q.pending[i].unit == u {
+			return hexCenter(q.pending[i].from)
+		}
+	}
+	return hexCenter(u.Pos)
+}
+
 // progress returns the interpolation factor [0, 1] for the current animation.
 func (a *animation) progress() float64 {
 	if a.frames == 0 {

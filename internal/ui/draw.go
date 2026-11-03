@@ -292,12 +292,10 @@ func (a *App) drawHighlights(dst *ebiten.Image) {
 func (a *App) drawUnits(dst *ebiten.Image) {
 	st := a.st
 	for _, u := range st.Units {
-		// Use animated position if unit is currently moving
-		cx, cy := hexCenter(u.Pos)
-		if a.animations.current != nil && a.animations.current.unit == u {
-			cx, cy = a.animations.current.position()
-		}
-		
+		// Animated or queued units use their animation position, so nobody
+		// flashes on the target hex before the move is played.
+		cx, cy := a.animations.positionOf(u)
+
 		spent := u.OutOfAction() || u.Faction == st.First && a.humanTurn() && u.MovesLeft() == 0
 		plate := color.RGBA{0xef, 0xeb, 0xdb, 0xe6}
 		fillRect(dst, rect{cx - 22, cy - 25, 44, 46}, plate)

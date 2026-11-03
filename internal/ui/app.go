@@ -72,9 +72,8 @@ type App struct {
 	// script steps through a commit or an AI turn, which stops at every fight.
 	script     func() (*game.Fight, bool)
 	stopScript func()
-	
+
 	animations animationQueue
-	moveQueue  []moveStep // moves to animate sequentially
 
 	sets      [2]*symbols.Set
 	regular   *text.GoTextFaceSource
@@ -433,6 +432,7 @@ func (a *App) endScript() {
 		a.stopScript()
 	}
 	a.script, a.stopScript = nil, nil
+	a.animations.clear()
 }
 
 func (a *App) click(x, y float64) {
