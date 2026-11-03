@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Comprehensive animation documentation (`docs/ANIMATIONS.md`)
 - Test mode with `NoAnimation` flag for fast test execution
 - Unit move recording in game state for replay and animation
+- **Version-numbered installer files** - Installers now use `totalkrieg_<version>.exe` format (e.g., `totalkrieg_0.2.0.exe`)
 
 ### Fixed
 - Player movement animations now work correctly (were initially broken)
