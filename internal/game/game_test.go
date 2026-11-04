@@ -77,8 +77,8 @@ func TestStartState(t *testing.T) {
 		switch u.Kind {
 		case Battalion:
 			staffs[u.Faction]++
-			if o := s.ObjectAt(u.Pos); o == nil || !o.Kind.IsCity() {
-				t.Errorf("staff %s not in a city", u.Name)
+			if u.Element.Home == nil || !u.Element.Home.Kind.IsCity() {
+				t.Errorf("staff %s has no home city", u.Name)
 			}
 		case Company:
 			companies[u.Faction]++

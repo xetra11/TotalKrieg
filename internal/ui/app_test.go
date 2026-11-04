@@ -86,8 +86,13 @@ func TestPlayerTurnByClicks(t *testing.T) {
 	}
 
 	// An order changes nothing until the turn is committed.
-	staff := st.UnitAt(city.Pos)
-	clickHexAt(a, city.Pos)
+	b := st.CityBattalion(city)
+	if b == nil {
+		t.Fatal("city has no battalion")
+	}
+	staff := b.Token
+	start := staff.Pos
+	clickHexAt(a, staff.Pos)
 	if a.selUnit != staff || len(a.reach) == 0 {
 		t.Fatal("staff not selected for a move")
 	}
@@ -97,7 +102,7 @@ func TestPlayerTurnByClicks(t *testing.T) {
 		break
 	}
 	clickHexAt(a, to)
-	if staff.Pos != city.Pos || st.OrderOf(staff) == nil || a.selUnit != staff {
+	if staff.Pos != start || st.OrderOf(staff) == nil || a.selUnit != staff {
 		t.Fatalf("staff at %v, order %v, message %q", staff.Pos, st.OrderOf(staff), a.message)
 	}
 	if !strings.Contains(a.unitState(staff), "move to") {

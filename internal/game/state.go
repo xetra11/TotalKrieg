@@ -76,6 +76,7 @@ func New(seed uint64, first Faction) *State {
 			u.Element.Home = o
 		}
 	}
+	s.deployFront()
 	s.beginTurn()
 	return s
 }
