@@ -55,6 +55,9 @@ func (a *App) draw(screen *ebiten.Image) {
 	a.drawCityNames(screen)
 	a.drawHint(screen)
 	a.drawSidebar(screen)
+	if a.showSettings {
+		a.drawSettingsOverlay(screen)
+	}
 	if a.showOrg {
 		a.drawOrg(screen)
 	}
@@ -399,6 +402,16 @@ func (a *App) drawHint(dst *ebiten.Image) {
 	a.drawKey(dst)
 }
 
+func (a *App) drawSettingsOverlay(dst *ebiten.Image) {
+	fillRect(dst, rect{0, 0, screenW, screenH}, color.RGBA{0, 0, 0, 0x88})
+	a.label(dst, "Settings", screenW/2, 260, 40, colText, true, text.AlignCenter)
+	b0 := settingsMenuButton(0)
+	fillRect(dst, b0, colAmber)
+	a.label(dst, "Return to main menu", b0.x+b0.w/2, b0.y+18, 18, colDeep, true, text.AlignCenter)
+	b1 := settingsMenuButton(1)
+	fillRect(dst, b1, colRed)
+	a.label(dst, "Quit game", b1.x+b1.w/2, b1.y+18, 18, colText, true, text.AlignCenter)
+}
 func (a *App) drawKey(dst *ebiten.Image) {
 	x := 620.0
 	a.label(dst, "Capital", x+24, hintY+8, 13, colInk, false, text.AlignStart)
@@ -425,6 +438,9 @@ func (a *App) drawKey(dst *ebiten.Image) {
 func (a *App) drawSidebar(dst *ebiten.Image) {
 	fillRect(dst, rect{sideX, topH, sideW, screenH - topH}, colPanel)
 	fillRect(dst, rect{sideX, topH, 2, screenH - topH}, colDeep)
+	b := settingsButton()
+	fillRect(dst, b, colAmber)
+	a.label(dst, "Settings", b.x+b.w/2, b.y+9, 14, colDeep, true, text.AlignCenter)
 	a.drawUnitPanel(dst)
 	a.drawCityPanel(dst)
 	a.drawLog(dst)
@@ -606,6 +622,8 @@ func (a *App) drawMenu(dst *ebiten.Image) {
 		a.drawMenuNewName(dst)
 	case menuNewFaction:
 		a.drawMenuNewFaction(dst)
+	case menuSettings:
+		a.drawMenuSettings(dst)
 	}
 }
 
@@ -617,17 +635,18 @@ func (a *App) drawMenuMain(dst *ebiten.Image) {
 	fillRect(dst, b, colAmber)
 	a.label(dst, "New campaign", b.x+b.w/2, b.y+20, 20, colDeep, true, text.AlignCenter)
 
-	if len(a.saves) == 0 {
-		a.label(dst, "No campaigns yet. Start a new one.", screenW/2, 380, 16, colMuted, false, text.AlignCenter)
-	} else {
-		a.label(dst, "Continue campaign", screenW/2, 370, 18, colAmber, true, text.AlignCenter)
-		for i, s := range a.saves {
-			if i >= 8 {
-				break
-			}
-			a.drawSaveRow(dst, s, saveButton(i))
-		}
+	if len(a.saves) > 0 {
+		c := continueButton()
+		fillRect(dst, c, colPanel)
+		strokeRect(dst, c, 2, colLine)
+		a.label(dst, "Continue last campaign", c.x+c.w/2, c.y+20, 18, colText, true, text.AlignCenter)
 	}
+
+	s := settingsMainButton()
+	fillRect(dst, s, colPanel)
+	strokeRect(dst, s, 2, colLine)
+	a.label(dst, "Settings", s.x+s.w/2, s.y+20, 18, colText, true, text.AlignCenter)
+
 	if a.saveErr != "" {
 		a.wrapped(dst, "Error: "+a.saveErr, 40, 800, screenW-80, 14, colRed)
 	}
@@ -699,9 +718,16 @@ func (a *App) drawMenuNewName(dst *ebiten.Image) {
 	a.label(dst, "Type your campaign name and press Continue", screenW/2, 700, 14, colMuted, false, text.AlignCenter)
 }
 
+func (a *App) drawMenuSettings(dst *ebiten.Image) {
+	a.label(dst, "TotalKrieg", screenW/2, 100, 72, colText, true, text.AlignCenter)
+	a.label(dst, "Settings", screenW/2, 210, 28, colAmber, true, text.AlignCenter)
+	b := menuBackButton()
+	strokeRect(dst, b, 2, colMuted)
+	a.label(dst, "← Back", b.x+b.w/2, b.y+12, 15, colText, true, text.AlignCenter)
+	a.label(dst, "Settings menu placeholder", screenW/2, 400, 18, colMuted, false, text.AlignCenter)
+}
 func (a *App) drawMenuNewFaction(dst *ebiten.Image) {
 	a.label(dst, "TotalKrieg", screenW/2, 100, 72, colText, true, text.AlignCenter)
-	a.label(dst, "Choose your side", screenW/2, 210, 24, colAmber, true, text.AlignCenter)
 
 	b := menuBackButton()
 	strokeRect(dst, b, 2, colMuted)

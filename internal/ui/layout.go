@@ -97,11 +97,26 @@ func menuContinueButton() rect {
 	return rect{screenW/2 - 100, 550, 200, 50}
 }
 
+func continueButton() rect {
+	return rect{screenW/2 - 200, 360, 400, 56}
+}
+
+func settingsMainButton() rect {
+	return rect{screenW/2 - 200, 440, 400, 56}
+}
+
+func settingsButton() rect {
+	return rect{sideX + 16, 10, sideW - 32, 32}
+}
+
+func settingsMenuButton(i int) rect {
+	return rect{screenW/2 - 200, 360 + float64(i)*70, 400, 56}
+}
+
 func campaignNameField() rect {
 	return rect{screenW/2 - 300, 320, 600, 60}
 }
 
-// saveButton is one row of the campaign list in the main menu.
 func saveButton(i int) rect {
 	return rect{screenW/2 - 380, 400 + float64(i)*54, 760, 46}
 }

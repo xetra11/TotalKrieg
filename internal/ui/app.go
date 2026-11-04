@@ -32,6 +32,7 @@ const (
 	menuMain menuMode = iota
 	menuNewName
 	menuNewFaction
+	menuSettings
 )
 
 // Options configures a run.
@@ -79,7 +80,8 @@ type App struct {
 	regular   *text.GoTextFaceSource
 	bold      *text.GoTextFaceSource
 	mapImg    *ebiten.Image
-	mapDirty  bool
+	mapDirty     bool
+	showSettings bool
 	symbolImg map[symbolKey]*ebiten.Image
 
 	frames int
@@ -455,6 +457,13 @@ func (a *App) click(x, y float64) {
 	case a.selUnit != nil && orgButton().contains(x, y):
 		a.openOrg()
 	case a.selCity != nil && a.clickRecruit(x, y):
+	case a.showSettings && settingsMenuButton(0).contains(x, y):
+		a.autosave()
+		a.toMenu()
+	case a.showSettings && settingsMenuButton(1).contains(x, y):
+		os.Exit(0)
+	case settingsButton().contains(x, y):
+		a.showSettings = !a.showSettings
 	default:
 		if c, ok := hexAt(x, y); ok {
 			a.clickHex(c)
@@ -470,6 +479,8 @@ func (a *App) clickMenu(x, y float64) {
 		a.clickMenuNewName(x, y)
 	case menuNewFaction:
 		a.clickMenuNewFaction(x, y)
+	case menuSettings:
+		a.clickMenuSettings(x, y)
 	}
 }
 
@@ -479,11 +490,13 @@ func (a *App) clickMenuMain(x, y float64) {
 		a.menu = menuNewName
 		return
 	}
-	for i, s := range a.saves {
-		if saveButton(i).contains(x, y) {
-			a.continueCampaign(s.ID)
-			return
-		}
+	if len(a.saves) > 0 && continueButton().contains(x, y) {
+		a.continueCampaign(a.saves[0].ID)
+		return
+	}
+	if settingsMainButton().contains(x, y) {
+		a.menu = menuSettings
+		return
 	}
 }
 
@@ -514,6 +527,13 @@ func (a *App) clickMenuNewFaction(x, y float64) {
 			a.startNew(f, a.campaignName)
 			return
 		}
+	}
+}
+
+func (a *App) clickMenuSettings(x, y float64) {
+	if menuBackButton().contains(x, y) {
+		a.menu = menuMain
+		return
 	}
 }
 
