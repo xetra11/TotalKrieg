@@ -58,7 +58,7 @@ Only companies fight on the map, battalions stand behind them as command staffs.
 
 | Level | Wehrmacht 1943 | Men | Soviet Union 1943 | Men |
 | --- | --- | --- | --- | --- |
-| Battalion | 3 rifle companies, 1 MG company | 838 | 3 rifle companies, 1 MG company, 1 mortar company | 619 |
+| Battalion | 3 rifle companies, 1 MG company | 838 | 3 rifle companies, 1 MG company (mortar company omitted by the 4-company cap) | 619 |
 | Company | Rifle company | 187 | Rifle company | 143 |
 
 Wehrmacht values: [TM-E 30-451, as of 1 September 1943](https://archive.org/details/TM-E30-451), figure 22; these are US estimates of the establishment strength. Soviet values: [battalion and company after Shtat 04/551](https://bayonetstrength.uk/RedArmy/RedArmyRifleBn/OrgRedRifleBn-headerpg.htm). Establishment strengths were rarely reached during the war.
@@ -68,7 +68,7 @@ The game values below are starting values for the balance test. The Soviet Union
 | Unit | Wehrmacht cost | Wehrmacht strength | Soviet cost | Soviet strength | Movement per round |
 | --- | --- | --- | --- | --- | --- |
 | Company | 1 manpower | 3 | 1 manpower | 2 | 3 hexes with a staff link, otherwise 1 hex |
-| Battalion with all companies | 3 manpower | Staff 1, companies 12 | 2 manpower | Staff 1, companies 9 | Staff 2 hexes |
+| Battalion with all companies | 3 manpower | Staff 1, companies 12 | 2 manpower | Staff 1, companies 8 | Staff 2 hexes |
 
 Units carry names from a list of real formations. This list must be checked against sources before it is built.
 
@@ -78,13 +78,15 @@ Each battalion consists of a command staff and its companies, all of which stand
 
 | Level | Wehrmacht | Soviet Union |
 | --- | --- | --- |
-| Battalion | Staff, 3 rifle companies of 3 each, 1 MG company of 3 | Staff, 3 rifle companies of 2 each, 1 MG company of 2, 1 mortar company of 1 |
+| Battalion | Staff, 3 rifle companies of 3 each, 1 MG company of 3 | Staff, 3 rifle companies of 2 each, 1 MG company of 2 |
 
 - **Companies:** Each company has a callsign and a leader, an officer or NCO. Both are invented. German callsigns stay in German as names.
+- **Company cap:** A battalion fields at most 4 companies. A company raised in a city joins the city's battalion when a slot is free, otherwise it is independent.
 - **Staff link:** A company is linked if its staff stands at most 4 hexes away. It then moves 3 hexes, without a link only 1 hex. Links count from where the units stand during planning, so a staff that moves up restores them next turn.
 - **Staff:** It moves 2 hexes, never attacks and captures nothing. It has strength 1 and can be attacked. If it falls, its companies lose their link.
 - **Affiliation:** The order of battle shows the battalion, companies, positions and losses. A dashed line connects staff and companies on the map, a red dot marks companies without a link.
-- **Independent companies:** Companies raised on their own belong to no battalion and therefore always move only 1 hex.
+- **Independent companies:** Companies raised without a free battalion slot belong to no battalion and therefore always move only 1 hex.
+- **Supply:** Own units within 3 hexes of an own city regain 1 strength per round, up to their establishment strength.
 
 ## Unit Symbols
 
@@ -112,10 +114,12 @@ Income depends only on holdings: each factory yields 1 resource, each city 1 man
 
 ## Raising Units
 
-Units appear only in own cities and the capital, as long as the manpower lasts. A battalion appears with its staff on the city hex and its companies on the free hexes next to it.
+Units appear only in own cities and the capital, as long as the manpower lasts. A battalion appears with its staff on the city hex and its companies on the free hexes next to it. A company appears on the city hex, or on the nearest free hex when the city hex is held by the staff.
 
 - Each city raises at most one unit per round.
-- The unit appears on the city hex. If it is occupied, nothing can be raised there.
+- A battalion needs a free city hex. A company can also be raised when the staff holds the city hex.
+- Each city raises at most one battalion. If its battalion is destroyed, the city may raise a new one.
+- A battalion fields at most 4 companies. A company joins the city's battalion when a company slot is free; otherwise it is raised as an independent company.
 - A new unit can only move or attack from the next round on.
 - Villages and factories raise no units.
 - At the start every city and the capital hold a battalion with all its companies, manpower starts at 0.

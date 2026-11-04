@@ -5,6 +5,21 @@ All notable changes to TotalKrieg will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **City supply radius** - Own units within 3 hexes of an own city regain 1 strength per round, up to their establishment strength
+- **One battalion per city** - A city can raise a battalion only while it has none; a destroyed battalion frees the city for a new one
+- **Company assignment** - Companies raised in a city join the city's battalion when a company slot is free
+- **Battalion company cap** - A battalion now fields at most 4 companies
+- City panel shows the city's battalion, living company count and supply radius
+
+### Changed
+- A company without a free battalion slot is raised as an independent, unlinked company
+- A company can be raised even when the battalion staff holds the city hex; it appears on the nearest free hex
+- Soviet battalions now field 3 rifle companies and 1 MG company (mortar company omitted by the 4-company cap), strength 8
+- Save format bumped to version 2 to store each battalion's home city
+
 ## [0.2.0] - 2024-11-03
 
 ### Added
