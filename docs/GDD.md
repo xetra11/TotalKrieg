@@ -41,6 +41,8 @@ The placement should be random but fair:
 4. A game is thrown out and rolled again if the mean distance of the cities to the center line differs by more than 2 hexes between the sides.
 5. The random value (seed) is stored so maps can be repeated for tests.
 
+Both sides start with their battalions on a front line near the center. Two empty columns separate the lines, so the opening turns are spent fighting rather than marching up.
+
 ## Factions
 
 Both factions play by the same rules and start with the same holdings; they differ only in organization, strength and symbols. The player chooses a side, the AI takes the other. The reference date for all historical data is summer 1943, as in the concept art.
@@ -122,7 +124,7 @@ Units appear only in own cities and the capital, as long as the manpower lasts. 
 - A battalion fields at most 4 companies. A company joins the city's battalion when a company slot is free; otherwise it is raised as an independent company.
 - A new unit can only move or attack from the next round on.
 - Villages and factories raise no units.
-- At the start every city and the capital hold a battalion with all its companies, manpower starts at 0.
+- At the start every city and the capital raise a battalion. All starting battalions deploy to the front line, so neither side spends the opening turns marching up; manpower starts at 0.
 
 ## Turn Sequence
 
