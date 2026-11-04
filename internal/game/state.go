@@ -382,6 +382,9 @@ func (s *State) Attack(u *Unit, target Coord) (Report, error) {
 		return Report{}, err
 	}
 	attackers, defenders := s.Engagement(u, target)
+	if len(defenders) == 0 {
+		return Report{}, errors.New("Nothing to attack.")
+	}
 	u.Pos = s.AttackTargets(u)[target]
 
 	defenderPercent := s.rollPercent()
@@ -396,6 +399,10 @@ func (s *State) Attack(u *Unit, target Coord) (Report, error) {
 
 // settle books the losses of a fight.
 func (s *State) settle(u *Unit, attackers, defenders []*Unit, target Coord, o Outcome, attackerLoss, defenderLoss int) Report {
+	if len(defenders) == 0 {
+		// No defender on the target hex; nothing to fight.
+		return Report{}
+	}
 	d := defenders[0]
 	r := Report{
 		Round:           s.Round,

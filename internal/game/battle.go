@@ -1,5 +1,7 @@
 package game
 
+import "errors"
+
 // Outcome is the result of a fight fought outside the game.
 type Outcome int
 
@@ -128,7 +130,7 @@ func (s *State) applyShares(units []*Unit, res *FieldResult) int {
 // gets support from the companies of its side next to it. Staffs don't join.
 func (s *State) Engagement(u *Unit, target Coord) (attackers, defenders []*Unit) {
 	attackers = []*Unit{u}
-	if d := s.UnitAt(target); d != nil {
+	if d := s.UnitAt(target); d != nil && d.Faction != u.Faction {
 		defenders = []*Unit{d}
 	}
 	for _, x := range s.Units {
@@ -151,6 +153,9 @@ func (s *State) ResolveBattle(u *Unit, target Coord, o Outcome) (Report, error) 
 		return Report{}, err
 	}
 	attackers, defenders := s.Engagement(u, target)
+	if len(defenders) == 0 {
+		return Report{}, errors.New("Nothing to attack.")
+	}
 	u.Pos = s.AttackTargets(u)[target]
 	losses := outcomeLosses[o]
 	return s.settle(u, attackers, defenders, target, o,

@@ -145,6 +145,7 @@ func (a *App) routing() bool {
 func (a *App) showRout() {
 	r := a.st.NextRout()
 	if r == nil {
+		a.reach = nil
 		return
 	}
 	a.clearSelection()
