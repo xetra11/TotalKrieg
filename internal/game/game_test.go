@@ -90,8 +90,8 @@ func TestStartState(t *testing.T) {
 	if staffs[Wehrmacht] != 3 || staffs[SovietUnion] != 3 {
 		t.Errorf("staffs = %v, want 3 each", staffs)
 	}
-	if companies[Wehrmacht] != 12 || companies[SovietUnion] != 15 {
-		t.Errorf("companies = %v, want 12 and 15", companies)
+	if companies[Wehrmacht] != 12 || companies[SovietUnion] != 12 {
+		t.Errorf("companies = %v, want 12 each", companies)
 	}
 	if got := s.Stocks[Wehrmacht]; got != (Stock{Manpower: 3, Resources: 2}) {
 		t.Errorf("first turn income = %+v", got)
@@ -138,8 +138,8 @@ func cityOf(s *State, f Faction) *Object {
 func TestRecruitRules(t *testing.T) {
 	s := New(1, Wehrmacht)
 	o := cityOf(s, Wehrmacht)
-	if _, err := s.Recruit(o, Company); err == nil {
-		t.Error("recruited on an occupied city")
+	if _, err := s.Recruit(o, Battalion); err == nil {
+		t.Error("raised a battalion on an occupied city hex")
 	}
 	clearField(s)
 	s.Stocks[Wehrmacht].Manpower = 2

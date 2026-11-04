@@ -45,7 +45,7 @@ type State struct {
 	counts        [2][unitKindCount]int
 	callsignsUsed [2]int
 	surnamePool   [2][]string
-	
+
 	// moves records unit movements for animation
 	moves []UnitMove
 }
@@ -72,7 +72,8 @@ func New(seed uint64, first Faction) *State {
 	s.Objects = generateObjects(s.rng)
 	for _, o := range s.Objects {
 		if o.Kind.IsCity() {
-			s.Place(o.Owner, Battalion, o.Pos)
+			u := s.Place(o.Owner, Battalion, o.Pos)
+			u.Element.Home = o
 		}
 	}
 	s.beginTurn()
@@ -86,6 +87,9 @@ func (s *State) Place(f Faction, k UnitKind, pos Coord) *Unit {
 	u := s.placeElement(e, pos)
 	spots := s.freeSpots(pos, len(e.Children))
 	for i, c := range e.Children {
+		if i >= len(spots) {
+			break
+		}
 		s.placeElement(c, spots[i])
 	}
 	return u
@@ -104,10 +108,12 @@ func (s *State) placeElement(e *Element, pos Coord) *Unit {
 }
 
 // freeSpots returns the n free hexes nearest a position. Objects stay clear, so
-// a company doesn't block the city a staff starts in.
+// a company doesn't block the city a staff starts in. It returns fewer hexes
+// when the map has no room left.
 func (s *State) freeSpots(pos Coord, n int) []Coord {
 	var out []Coord
-	for ring := 1; len(out) < n; ring++ {
+	maxRing := MapCols + MapRows
+	for ring := 1; len(out) < n && ring <= maxRing; ring++ {
 		dist := map[Coord]int{}
 		for row := 0; row < MapRows; row++ {
 			for col := 0; col < MapCols; col++ {
@@ -119,7 +125,10 @@ func (s *State) freeSpots(pos Coord, n int) []Coord {
 		}
 		out = append(out, sortedCoords(dist)...)
 	}
-	return out[:n]
+	if len(out) > n {
+		out = out[:n]
+	}
+	return out
 }
 
 // UnitAt returns the unit on a hex, or nil.
@@ -167,6 +176,16 @@ func (s *State) beginTurn() {
 			s.Stocks[f].Resources++
 		}
 	}
+	// Units in the supply radius of an own city regain one strength point per
+	// round, up to their establishment strength.
+	for _, u := range s.Units {
+		if u.Faction != f || u.Element == nil || !s.inSupply(u) {
+			continue
+		}
+		if u.Element.Current < u.Element.Full {
+			u.Element.Current++
+		}
+	}
 }
 
 // CanRecruit explains why a unit can't be raised in a city, or returns nil.
@@ -180,26 +199,70 @@ func (s *State) CanRecruit(o *Object, k UnitKind) error {
 		return errors.New("This city is not yours.")
 	case o.Recruited:
 		return errors.New("This city already raised a unit this round.")
-	case s.UnitAt(o.Pos) != nil:
-		return errors.New("The city hex is occupied.")
 	case s.Stocks[s.Active].Manpower < Stats(s.Active, k).Cost:
 		return errors.New("Not enough manpower.")
+	case k == Battalion && s.UnitAt(o.Pos) != nil:
+		return errors.New("The city hex is occupied.")
+	case k == Battalion && s.CityBattalion(o) != nil:
+		return errors.New("This city already has a battalion.")
+	case k == Battalion && len(s.freeSpots(o.Pos, BattalionSize(s.Active))) < BattalionSize(s.Active):
+		return errors.New("Not enough room around the city.")
+	case k == Company && !s.hasRecruitSpot(o):
+		return errors.New("No free hex to raise the unit.")
 	}
 	return nil
 }
 
-// Recruit raises a unit in a city.
+// Recruit raises a unit in a city. A company joins the city's battalion when
+// it has a free slot, otherwise it is raised as an independent company.
 func (s *State) Recruit(o *Object, k UnitKind) (*Unit, error) {
 	if err := s.CanRecruit(o, k); err != nil {
 		return nil, err
 	}
 	s.Stocks[s.Active].Manpower -= Stats(s.Active, k).Cost
 	o.Recruited = true
-	u := s.Place(s.Active, k, o.Pos)
+	var u *Unit
+	if k == Battalion {
+		u = s.Place(s.Active, k, o.Pos)
+		u.Element.Home = o
+	} else {
+		u = s.recruitCompany(o)
+	}
 	for _, t := range u.Element.Tokens() {
 		t.Spent = true
 	}
 	return u, nil
+}
+
+// recruitCompany raises one company from a city and puts it on the city hex or
+// the nearest free hex. It joins the city's battalion if that has a slot.
+func (s *State) recruitCompany(o *Object) *Unit {
+	f := s.Active
+	pos := s.recruitSpot(o)
+	if b := s.CityBattalion(o); b != nil {
+		revive, add := s.companySlot(b)
+		switch {
+		case revive != nil:
+			revive.Current = revive.Full
+			return s.placeElement(revive, pos)
+		case add:
+			return s.placeElement(s.buildRaisedCompany(f, b), pos)
+		}
+	}
+	return s.placeElement(s.buildRaisedCompany(f, nil), pos)
+}
+
+// hasRecruitSpot reports whether a company can be placed at or next to a city.
+func (s *State) hasRecruitSpot(o *Object) bool {
+	return s.UnitAt(o.Pos) == nil || len(s.freeSpots(o.Pos, 1)) > 0
+}
+
+// recruitSpot returns the hex a new company starts on.
+func (s *State) recruitSpot(o *Object) Coord {
+	if s.UnitAt(o.Pos) == nil {
+		return o.Pos
+	}
+	return s.freeSpots(o.Pos, 1)[0]
 }
 
 // Reachable returns the hexes a unit can end its move on, with their distance.

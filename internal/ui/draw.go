@@ -476,16 +476,26 @@ func (a *App) drawCityPanel(dst *ebiten.Image) {
 		fillRect(dst, r, bg)
 		strokeRect(dst, r, 1, colLine)
 		a.label(dst, k.String(), r.x+12, r.y+6, 16, fg, true, text.AlignStart)
-		a.label(dst, recruitText(a.st.First, k), r.x+12, r.y+26, 13, fg, false, text.AlignStart)
+		a.label(dst, a.recruitText(o, k), r.x+12, r.y+26, 13, fg, false, text.AlignStart)
 		a.label(dst, fmt.Sprintf("%d Manpower", stats.Cost), r.x+r.w-12, r.y+14, 15, fg, true, text.AlignEnd)
 	}
+	y := float64(cityPanelY + 178)
+	if b := a.st.CityBattalion(o); b != nil {
+		a.label(dst, fmt.Sprintf("Battalion %s: %d/%d companies", b.Short, a.st.LivingCompanies(b), game.MaxBattalionCompanies), x, y, 13, colMuted, false, text.AlignStart)
+	} else {
+		a.label(dst, "No battalion raised here.", x, y, 13, colMuted, false, text.AlignStart)
+	}
+	a.label(dst, fmt.Sprintf("Supply radius: %d hexes (+1 strength per round)", game.SupplyRange), x, y+20, 13, colMuted, false, text.AlignStart)
 }
 
-func recruitText(f game.Faction, k game.UnitKind) string {
+func (a *App) recruitText(o *game.Object, k game.UnitKind) string {
 	if k == game.Battalion {
-		return fmt.Sprintf("Staff and %d companies", game.BattalionSize(f))
+		return fmt.Sprintf("Staff and %d companies", game.BattalionSize(a.st.First))
 	}
-	return fmt.Sprintf("Independent, strength %d, %s", game.Stats(f, k).Strength, fieldCount(game.UnlinkedMove))
+	if a.st.CanAssignCompany(o) {
+		return fmt.Sprintf("Replacement for the battalion, strength %d", game.Stats(a.st.First, k).Strength)
+	}
+	return fmt.Sprintf("Independent, strength %d, %s", game.Stats(a.st.First, k).Strength, fieldCount(game.UnlinkedMove))
 }
 
 func (a *App) drawLog(dst *ebiten.Image) {
@@ -605,12 +615,12 @@ func (a *App) drawMenuNewName(dst *ebiten.Image) {
 	a.label(dst, "← Back", b.x+b.w/2, b.y+12, 15, colText, true, text.AlignCenter)
 
 	a.label(dst, "Enter campaign name:", screenW/2, 280, 18, colText, false, text.AlignCenter)
-	
+
 	// Name input field
 	field := campaignNameField()
 	fillRect(dst, field, colDeep)
 	strokeRect(dst, field, 2, colAmber)
-	
+
 	displayName := a.campaignName
 	if displayName == "" {
 		displayName = "My Campaign"
@@ -618,7 +628,7 @@ func (a *App) drawMenuNewName(dst *ebiten.Image) {
 	} else {
 		a.label(dst, displayName, field.x+field.w/2, field.y+20, 24, colText, false, text.AlignCenter)
 	}
-	
+
 	// Blinking cursor
 	if a.frames%60 < 30 && displayName != "" {
 		tw, _ := text.Measure(displayName, &text.GoTextFace{Source: a.regular, Size: 24}, 0)
@@ -640,7 +650,7 @@ func (a *App) drawMenuNewName(dst *ebiten.Image) {
 	if a.saveErr != "" {
 		a.label(dst, a.saveErr, screenW/2, 650, 14, colRed, false, text.AlignCenter)
 	}
-	
+
 	a.label(dst, "Type your campaign name and press Continue", screenW/2, 700, 14, colMuted, false, text.AlignCenter)
 }
 

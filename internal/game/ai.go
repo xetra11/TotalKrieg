@@ -91,15 +91,23 @@ func (s *State) enemyNear(c Coord) bool {
 	return false
 }
 
-// aiRecruit raises companies in threatened cities. Every other city saves for
-// a battalion, so one occupied city can't freeze all recruiting.
+// aiRecruit raises companies in threatened cities. A city without a battalion
+// raises one, and free battalion slots are filled with replacement companies.
 func (s *State) aiRecruit() {
 	for _, o := range s.threatenedCities() {
 		s.Recruit(o, Company)
 	}
 	for _, o := range s.ownCitiesByFront() {
+		if s.CityBattalion(o) != nil {
+			continue
+		}
 		if _, err := s.Recruit(o, Battalion); err == nil {
 			return
+		}
+	}
+	for _, o := range s.ownCitiesByFront() {
+		if s.CanAssignCompany(o) {
+			s.Recruit(o, Company)
 		}
 	}
 }

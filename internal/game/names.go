@@ -61,12 +61,25 @@ func (s *State) newElement(f Faction, k UnitKind, parent *Element, name, short s
 
 // buildFormation creates a new formation with its full order of battle.
 func (s *State) buildFormation(f Faction, k UnitKind) *Element {
-	n := s.counts[f][k]
-	s.counts[f][k]++
 	if k == Battalion {
+		n := s.counts[f][k]
+		s.counts[f][k]++
 		return s.buildBattalion(f, regimentBase[f]+n/3, n%3)
 	}
-	return s.buildFreeCompany(f, n)
+	return s.buildRaisedCompany(f, nil)
+}
+
+// buildRaisedCompany numbers a company raised from a city. With a parent it is
+// a replacement for that battalion, otherwise it is independent.
+func (s *State) buildRaisedCompany(f Faction, parent *Element) *Element {
+	n := s.counts[f][Company]
+	s.counts[f][Company]++
+	if parent == nil {
+		return s.buildFreeCompany(f, n)
+	}
+	name := fmt.Sprintf("%s Company, %s", Ordinal(n+1), parent.Short)
+	short := fmt.Sprintf("%d/%s", n+1, parent.Short)
+	return s.buildCompany(f, parent, RoleRifle, name, short)
 }
 
 // buildBattalion creates the idx-th battalion of a regiment, counted from 0.

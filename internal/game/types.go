@@ -100,7 +100,7 @@ var statsTable = [2][unitKindCount]UnitStats{
 	},
 	SovietUnion: {
 		Company:   {Cost: 1, Strength: 2, Move: 3, Men: "143", Note: "Rifle company"},
-		Battalion: {Cost: 2, Strength: 9, Move: 2, Men: "619", Note: "3 rifle companies, MG and mortar company"},
+		Battalion: {Cost: 2, Strength: 8, Move: 2, Men: "619", Note: "3 rifle companies, 1 MG company"},
 	},
 }
 

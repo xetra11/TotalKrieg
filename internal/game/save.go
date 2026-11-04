@@ -8,14 +8,14 @@ import (
 
 // snapshotVersion is the layout of Snapshot. It changes when the fields do, so
 // an old save is rejected instead of being read into a wrong match.
-const snapshotVersion = 1
+const snapshotVersion = 2
 
 // Snapshot is a match in a form that can be written to disk. Units, elements,
 // orders and routs refer to each other by their index in the lists, because the
 // live state uses pointers.
 type Snapshot struct {
-	Version int    `json:"version"`
-	Seed    uint64 `json:"seed"`
+	Version int     `json:"version"`
+	Seed    uint64  `json:"seed"`
 	First   Faction `json:"first"`
 	Round   int     `json:"round"`
 	Active  Faction `json:"active"`
@@ -42,11 +42,11 @@ type Snapshot struct {
 
 // UnitSnapshot is a unit without its pointer to the order of battle.
 type UnitSnapshot struct {
-	ID      int     `json:"id"`
-	Faction Faction `json:"faction"`
+	ID      int      `json:"id"`
+	Faction Faction  `json:"faction"`
 	Kind    UnitKind `json:"kind"`
-	Pos     Coord   `json:"pos"`
-	Element int     `json:"element"`
+	Pos     Coord    `json:"pos"`
+	Element int      `json:"element"`
 
 	Name  string `json:"name"`
 	Short string `json:"short"`
@@ -61,10 +61,10 @@ type UnitSnapshot struct {
 // ElementSnapshot is one node of the order of battle. Parent and Token are
 // indices, -1 when there is none.
 type ElementSnapshot struct {
-	Faction Faction `json:"faction"`
+	Faction Faction  `json:"faction"`
 	Kind    UnitKind `json:"kind"`
-	Name    string  `json:"name"`
-	Short   string  `json:"short"`
+	Name    string   `json:"name"`
+	Short   string   `json:"short"`
 
 	Parent   int   `json:"parent"`
 	Children []int `json:"children,omitempty"`
@@ -75,6 +75,7 @@ type ElementSnapshot struct {
 	Current  int         `json:"current"`
 	Full     int         `json:"full"`
 
+	Home  int `json:"home"` // index of the home city, -1 when none
 	Token int `json:"token"`
 }
 
@@ -114,10 +115,13 @@ func (s *State) Snapshot() (Snapshot, error) {
 		CallsignsUsed: s.callsignsUsed,
 		SurnamePool:   s.surnamePool,
 	}
+	objectIndex := make(map[*Object]int, len(s.Objects))
 	for _, o := range s.Objects {
-		if o != nil {
-			snap.Objects = append(snap.Objects, *o)
+		if o == nil {
+			continue
 		}
+		objectIndex[o] = len(snap.Objects)
+		snap.Objects = append(snap.Objects, *o)
 	}
 
 	if s.pcg != nil {
@@ -141,10 +145,16 @@ func (s *State) Snapshot() (Snapshot, error) {
 			Leader:   e.Leader,
 			Current:  e.Current,
 			Full:     e.Full,
+			Home:     -1,
 			Token:    -1,
 		}
 		if e.Parent != nil {
 			es.Parent = index[e.Parent]
+		}
+		if e.Home != nil {
+			if idx, ok := objectIndex[e.Home]; ok {
+				es.Home = idx
+			}
 		}
 		for _, c := range e.Children {
 			es.Children = append(es.Children, index[c])
@@ -273,6 +283,12 @@ func Restore(snap Snapshot) (*State, error) {
 				return nil, fmt.Errorf("element %d has parent %d", i, es.Parent)
 			}
 			e.Parent = s.elements[es.Parent]
+		}
+		if es.Home >= 0 {
+			if !validIndex(es.Home, len(s.Objects)) {
+				return nil, fmt.Errorf("element %d has home %d", i, es.Home)
+			}
+			e.Home = s.Objects[es.Home]
 		}
 		for _, c := range es.Children {
 			if !validIndex(c, len(s.elements)) {

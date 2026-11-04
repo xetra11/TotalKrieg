@@ -150,7 +150,7 @@ func (a *App) startNew(f game.Faction, name string) {
 	a.message = "Choose a unit or a city."
 	a.mapDirty = true
 	a.campaignName = ""
-	
+
 	// Create the campaign file only once
 	if a.store != nil && a.opts.Shot == "" {
 		rec, err := a.store.New(name, a.st)
@@ -287,13 +287,13 @@ func (a *App) handleNameInput() {
 		}
 		return
 	}
-	
+
 	// Get text input from ebiten
 	runes := ebiten.AppendInputChars(nil)
 	for _, r := range runes {
 		// Allow letters, numbers, spaces, and basic punctuation
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || 
-		   (r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_' {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == ' ' || r == '-' || r == '_' {
 			if len(a.campaignName) < 50 {
 				a.campaignName += string(r)
 			}
@@ -531,7 +531,14 @@ func (a *App) clickRecruit(x, y float64) bool {
 			return true
 		}
 		a.selUnit = u
-		a.message = fmt.Sprintf("%s raised.", u.Name)
+		switch {
+		case k == game.Battalion:
+			a.message = fmt.Sprintf("%s raised with %d companies.", u.Name, game.BattalionSize(u.Faction))
+		case u.Element.Parent != nil:
+			a.message = fmt.Sprintf("%s raised and assigned to %s.", u.Name, u.Element.Parent.Short)
+		default:
+			a.message = fmt.Sprintf("%s raised as an independent company.", u.Name)
+		}
 		return true
 	}
 	return false

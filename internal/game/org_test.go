@@ -12,7 +12,7 @@ func TestBattalionStructure(t *testing.T) {
 	cases := []struct {
 		faction Faction
 		count   int
-	}{{Wehrmacht, 4}, {SovietUnion, 5}}
+	}{{Wehrmacht, 4}, {SovietUnion, 4}}
 	for i, c := range cases {
 		u := s.Place(c.faction, Battalion, Coord{5 + i*10, 5})
 		if got := len(u.Element.Children); got != c.count {

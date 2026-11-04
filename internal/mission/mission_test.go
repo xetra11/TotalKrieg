@@ -128,8 +128,8 @@ func TestRolesMapToTheirPlatoons(t *testing.T) {
 	german := battalion(s, game.Wehrmacht, game.Coord{Col: 5, Row: 5})
 	b := Build(Battle{Faction: game.SovietUnion, Player: soviet[3:], Enemy: german[3:]})
 	own := b.Sides.Player.Platoons
-	if count(own, "ra_rbn_1242_mg_plat") != 1 || count(own, "ra_rbn_1242_mt82_plat") != 1 {
-		t.Errorf("Soviet special companies: %+v", own)
+	if count(own, "ra_rbn_1242_mg_plat") != 1 {
+		t.Errorf("Soviet MG company: %+v", own)
 	}
 	if count(b.Sides.Enemy.Platoons, "wer_mibn_1141_mg_plat1") != 1 {
 		t.Errorf("German MG company: %+v", b.Sides.Enemy.Platoons)

@@ -129,10 +129,14 @@ func TestPlayerTurnByClicks(t *testing.T) {
 	if a.selCity != city {
 		t.Fatal("city not selected")
 	}
+	before := len(st.Units)
 	clickRect(a, recruitButton(0))
-	u := st.UnitAt(city.Pos)
-	if u == nil || u.Kind != game.Company {
+	if len(st.Units) != before+1 {
 		t.Fatalf("no company raised, message %q", a.message)
+	}
+	u := st.Units[len(st.Units)-1]
+	if u.Kind != game.Company {
+		t.Fatalf("raised %v, want a company", u.Kind)
 	}
 	if st.Stocks[game.Wehrmacht].Manpower != 5 {
 		t.Errorf("manpower = %d", st.Stocks[game.Wehrmacht].Manpower)
