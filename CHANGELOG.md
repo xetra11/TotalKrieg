@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Territory shading and front line** - Every hex is shaded by the side that controls it, based on the nearest living unit or object. A bold line marks the edge where control changes hands, so unit movement visibly pushes the front
 - **Starting front line** - New campaigns deploy all starting battalions to a front line near the map center, with two empty columns between the sides, so neither player spends the opening turns marching up
 - **City supply radius** - Own units within 3 hexes of an own city regain 1 strength per round, up to their establishment strength
 - **One battalion per city** - A city can raise a battalion only while it has none; a destroyed battalion frees the city for a new one

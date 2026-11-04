@@ -43,6 +43,8 @@ The placement should be random but fair:
 
 Both sides start with their battalions on a front line near the center. Two empty columns separate the lines, so the opening turns are spent fighting rather than marching up.
 
+**Control and front line:** Every hex belongs to the side whose nearest living unit or object is closest. Controlled ground is shaded in the faction colour, and a bold line marks every edge where control changes hands. Moving a unit therefore shifts the front with it; advances and retreats are visible on the map at once.
+
 ## Factions
 
 Both factions play by the same rules and start with the same holdings; they differ only in organization, strength and symbols. The player chooses a side, the AI takes the other. The reference date for all historical data is summer 1943, as in the concept art.
