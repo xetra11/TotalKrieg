@@ -531,6 +531,7 @@ func (a *App) clickRecruit(x, y float64) bool {
 			return true
 		}
 		a.selUnit = u
+		a.mapDirty = true
 		switch {
 		case k == game.Battalion:
 			a.message = fmt.Sprintf("%s raised with %d companies.", u.Name, game.BattalionSize(u.Faction))

@@ -23,8 +23,8 @@ var (
 	colMuted    = color.RGBA{0xb9, 0xba, 0xab, 0xff}
 	colAmber    = color.RGBA{0xd9, 0xbc, 0x62, 0xff}
 	colPaper    = color.RGBA{0xe5, 0xe1, 0xd0, 0xff}
-	colPaperW   = color.RGBA{0xd8, 0xda, 0xd2, 0xff}
-	colPaperS   = color.RGBA{0xe8, 0xd2, 0xc2, 0xff}
+	colPaperW   = color.RGBA{0xc7, 0xd6, 0xe8, 0xff}
+	colPaperS   = color.RGBA{0xeb, 0xc9, 0xbf, 0xff}
 	colHexLine  = color.RGBA{0xa9, 0xa5, 0x91, 0xff}
 	colInk      = color.RGBA{0x23, 0x23, 0x1d, 0xff}
 	colBlue     = color.RGBA{0x1c, 0x4f, 0xa0, 0xff}
@@ -186,33 +186,75 @@ func (a *App) drawMap(dst *ebiten.Image) {
 func (a *App) renderMap(img *ebiten.Image) {
 	img.Fill(colPaper)
 	st := a.st
+	ctrl := make([][]game.Faction, game.MapRows)
+	for row := 0; row < game.MapRows; row++ {
+		ctrl[row] = make([]game.Faction, game.MapCols)
+		for col := 0; col < game.MapCols; col++ {
+			ctrl[row][col] = st.Controller(game.Coord{Col: col, Row: row})
+		}
+	}
 	for row := 0; row < game.MapRows; row++ {
 		for col := 0; col < game.MapCols; col++ {
 			c := game.Coord{Col: col, Row: row}
 			cx, cy := hexCenter(c)
 			pts := hexCorners(cx, cy-topH, hexSize)
-			fill := colPaperW
-			if a.controller(c) == game.SovietUnion {
+			fill := colPaper
+			switch ctrl[row][col] {
+			case game.Wehrmacht:
+				fill = colPaperW
+			case game.SovietUnion:
 				fill = colPaperS
 			}
 			fillPoly(img, pts, fill)
 			strokePoly(img, pts, true, 1, colHexLine)
 		}
 	}
+	a.renderFront(img, ctrl)
 	for _, o := range st.Objects {
 		a.renderObject(img, o)
 	}
 }
 
-// controller returns the owner of the nearest object, which paints the front.
-func (a *App) controller(c game.Coord) game.Faction {
-	best, owner := math.MaxInt, game.NoFaction
-	for _, o := range a.st.Objects {
-		if d := game.Distance(c, o.Pos); d < best {
-			best, owner = d, o.Owner
+// renderFront draws a bold line along every edge where control changes hands.
+func (a *App) renderFront(img *ebiten.Image, ctrl [][]game.Faction) {
+	// These three neighbour directions cover every hex edge exactly once.
+	dirs := [3]int{0, 4, 5}
+	for row := 0; row < game.MapRows; row++ {
+		for col := 0; col < game.MapCols; col++ {
+			c := game.Coord{Col: col, Row: row}
+			ns := c.Neighbors()
+			for _, i := range dirs {
+				n := ns[i]
+				if n.Col < 0 || n.Col >= game.MapCols || n.Row < 0 || n.Row >= game.MapRows {
+					continue
+				}
+				if ctrl[row][col] == ctrl[n.Row][n.Col] {
+					continue
+				}
+				frontEdge(img, c, n)
+			}
 		}
 	}
-	return owner
+}
+
+// frontEdge draws the shared edge of two neighbouring hexes.
+func frontEdge(img *ebiten.Image, from, to game.Coord) {
+	ax, ay := hexCenter(from)
+	bx, by := hexCenter(to)
+	ay -= topH
+	by -= topH
+	mx, my := (ax+bx)/2, (ay+by)/2
+	dx, dy := bx-ax, by-ay
+	length := math.Hypot(dx, dy)
+	if length == 0 {
+		return
+	}
+	px, py := -dy/length, dx/length
+	half := hexSize / 2
+	x0, y0 := mx+px*half, my+py*half
+	x1, y1 := mx-px*half, my-py*half
+	vector.StrokeLine(img, float32(x0), float32(y0), float32(x1), float32(y1), 5, colText, true)
+	vector.StrokeLine(img, float32(x0), float32(y0), float32(x1), float32(y1), 3, colInk, true)
 }
 
 func (a *App) renderObject(img *ebiten.Image, o *game.Object) {
@@ -353,6 +395,7 @@ func (a *App) drawHint(dst *ebiten.Image) {
 	seed := fmt.Sprintf("Map %d", a.st.Seed)
 	a.label(dst, seed, 24, hintY+30, 13, colInk, false, text.AlignStart)
 	a.label(dst, "Click hexes to plan orders.   Enter: commit orders   G: order of battle   Esc: cancel", 24, hintY+50, 13, colInk, false, text.AlignStart)
+	a.label(dst, "Shaded ground shows control; the dark line is the front.", 24, hintY+70, 13, colInk, false, text.AlignStart)
 	a.drawKey(dst)
 }
 
@@ -375,6 +418,8 @@ func (a *App) drawKey(dst *ebiten.Image) {
 	a.label(dst, "No staff link", x+284, hintY+38, 13, colInk, false, text.AlignStart)
 	strokeRect(dst, rect{x, hintY + 68, 18, 12}, 2, colBeaten)
 	a.label(dst, "Beaten, sits out a turn", x+24, hintY+66, 13, colInk, false, text.AlignStart)
+	vector.StrokeLine(dst, float32(x+268), float32(hintY+74), float32(x+286), float32(hintY+74), 4, colInk, true)
+	a.label(dst, "Front line", x+294, hintY+66, 13, colInk, false, text.AlignStart)
 }
 
 func (a *App) drawSidebar(dst *ebiten.Image) {
