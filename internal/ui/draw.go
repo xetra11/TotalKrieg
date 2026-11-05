@@ -156,6 +156,10 @@ func (a *App) drawTopBar(dst *ebiten.Image) {
 	cities, objects := st.Holdings(st.First)
 	a.label(dst, "Holdings", 1130, 10, 14, colMuted, false, text.AlignStart)
 	a.label(dst, fmt.Sprintf("%d cities, %d objects", cities, objects), 1130, 30, 15, colText, true, text.AlignStart)
+
+	b := settingsButton()
+	fillRect(dst, b, colAmber)
+	a.label(dst, "Settings", b.x+b.w/2, b.y+12, 15, colDeep, true, text.AlignCenter)
 }
 
 func (a *App) drawNextButton(dst *ebiten.Image) {
@@ -414,7 +418,12 @@ func (a *App) drawSettingsOverlay(dst *ebiten.Image) {
 	b1 := settingsMenuButton(1)
 	fillRect(dst, b1, colRed)
 	a.label(dst, "Quit game", b1.x+b1.w/2, b1.y+18, 18, colText, true, text.AlignCenter)
+	b2 := settingsMenuButton(2)
+	fillRect(dst, b2, colPanel)
+	strokeRect(dst, b2, 2, colLine)
+	a.label(dst, "Back to game", b2.x+b2.w/2, b2.y+18, 18, colText, true, text.AlignCenter)
 }
+
 func (a *App) drawKey(dst *ebiten.Image) {
 	x := 620.0
 	a.label(dst, "Capital", x+24, hintY+8, 13, colInk, false, text.AlignStart)
@@ -441,9 +450,6 @@ func (a *App) drawKey(dst *ebiten.Image) {
 func (a *App) drawSidebar(dst *ebiten.Image) {
 	fillRect(dst, rect{sideX, topH, sideW, screenH - topH}, colPanel)
 	fillRect(dst, rect{sideX, topH, 2, screenH - topH}, colDeep)
-	b := settingsButton()
-	fillRect(dst, b, colAmber)
-	a.label(dst, "Settings", b.x+b.w/2, b.y+9, 14, colDeep, true, text.AlignCenter)
 	a.drawUnitPanel(dst)
 	a.drawCityPanel(dst)
 	a.drawLog(dst)

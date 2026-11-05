@@ -76,13 +76,13 @@ type App struct {
 
 	animations animationQueue
 
-	sets      [2]*symbols.Set
-	regular   *text.GoTextFaceSource
-	bold      *text.GoTextFaceSource
-	mapImg    *ebiten.Image
+	sets         [2]*symbols.Set
+	regular      *text.GoTextFaceSource
+	bold         *text.GoTextFaceSource
+	mapImg       *ebiten.Image
 	mapDirty     bool
 	showSettings bool
-	symbolImg map[symbolKey]*ebiten.Image
+	symbolImg    map[symbolKey]*ebiten.Image
 
 	frames int
 	shot   bool
@@ -306,7 +306,7 @@ func (a *App) handleNameInput() {
 // confirm resolves an open fight, otherwise it ends the turn.
 func (a *App) confirm() {
 	switch {
-	case a.battle != nil, a.routing():
+	case a.showSettings, a.battle != nil, a.routing():
 	case a.attack != nil:
 		a.resolveAuto()
 	case !a.showOrg:
@@ -318,6 +318,8 @@ func (a *App) confirm() {
 // stepped back from.
 func (a *App) cancel() {
 	switch {
+	case a.showSettings:
+		a.showSettings = false
 	case a.st == nil && a.menu == menuNewFaction:
 		a.menu = menuNewName
 	case a.st == nil && a.menu == menuNewName:
@@ -443,6 +445,8 @@ func (a *App) click(x, y float64) {
 		a.clickMenu(x, y)
 	case a.st.Over && newGameButton().contains(x, y):
 		a.toMenu()
+	case a.showSettings:
+		a.clickSettings(x, y)
 	case a.battle != nil:
 		a.clickBattleDialog(x, y)
 	case a.attack != nil:
@@ -457,17 +461,25 @@ func (a *App) click(x, y float64) {
 	case a.selUnit != nil && orgButton().contains(x, y):
 		a.openOrg()
 	case a.selCity != nil && a.clickRecruit(x, y):
-	case a.showSettings && settingsMenuButton(0).contains(x, y):
-		a.autosave()
-		a.toMenu()
-	case a.showSettings && settingsMenuButton(1).contains(x, y):
-		os.Exit(0)
 	case settingsButton().contains(x, y):
-		a.showSettings = !a.showSettings
+		a.showSettings = true
 	default:
 		if c, ok := hexAt(x, y); ok {
 			a.clickHex(c)
 		}
+	}
+}
+
+// clickSettings handles the settings overlay, which blocks everything under it.
+func (a *App) clickSettings(x, y float64) {
+	switch {
+	case settingsMenuButton(0).contains(x, y):
+		a.showSettings = false
+		a.toMenu()
+	case settingsMenuButton(1).contains(x, y):
+		os.Exit(0)
+	case settingsMenuButton(2).contains(x, y), settingsButton().contains(x, y):
+		a.showSettings = false
 	}
 }
 

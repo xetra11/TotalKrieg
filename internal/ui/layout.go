@@ -106,7 +106,7 @@ func settingsMainButton() rect {
 }
 
 func settingsButton() rect {
-	return rect{sideX + 16, 10, 120, 32}
+	return rect{screenW - 124, 10, 108, 40}
 }
 
 func settingsMenuButton(i int) rect {
