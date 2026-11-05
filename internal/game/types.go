@@ -111,18 +111,19 @@ func Stats(f Faction, k UnitKind) UnitStats {
 
 // Unit is a unit on the map.
 type Unit struct {
-	ID      int
-	Faction Faction
-	Kind    UnitKind
-	Pos     Coord
-	Element *Element // the unit's place in the order of battle
-	Name    string   // full designation
-	Short   string   // map label
-	Flag    string   // text inside the symbol, where the faction's signs carry one
-	Used    int      // fields moved this turn
-	Spent   bool     // fought this turn or just raised, no movement left
-	Beaten  bool     // lost a fight, sits out its next turn
-	Resting bool     // sitting out this turn
+	ID       int
+	Faction  Faction
+	Kind     UnitKind
+	Pos      Coord
+	Element  *Element // the unit's place in the order of battle
+	Name     string   // full designation
+	Short    string   // map label
+	Flag     string   // text inside the symbol, where the faction's signs carry one
+	Used     int      // fields moved this turn
+	Spent    bool     // fought this turn or just raised, no movement left
+	Beaten   bool     // lost a fight, sits out its next turn
+	Resting  bool     // sitting out this turn
+	Withdrew bool     // pulled back from an attack once; the next one must be fought
 }
 
 // OutOfAction reports whether the unit was beaten and has yet to sit out its
@@ -152,5 +153,6 @@ type Report struct {
 	DefenderLoss      int
 	AttackerDestroyed bool
 	DefenderDestroyed bool
+	Withdrew          bool // the defender pulled back without a fight
 	Pos               Coord
 }

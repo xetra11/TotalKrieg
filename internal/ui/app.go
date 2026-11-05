@@ -426,7 +426,9 @@ func (a *App) stepScript() {
 		return
 	}
 	a.attack = fight
-	if a.incoming() && a.runMission == nil {
+	// An AI attack resolves by itself unless the player has a choice to make:
+	// withdraw, nearby support, or a tactical game to play.
+	if a.incoming() && a.runMission == nil && len(a.supportCandidates()) == 0 && !a.canWithdraw() {
 		a.resolveAuto()
 	}
 }

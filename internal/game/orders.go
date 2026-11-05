@@ -16,9 +16,11 @@ type Order struct {
 // Fight is an attack about to happen. Whoever steps through a turn may resolve
 // it and set Resolved, otherwise the rules resolve it automatically.
 type Fight struct {
-	Unit     *Unit
-	Target   Coord
-	Resolved bool
+	Unit      *Unit
+	Target    Coord
+	Resolved  bool
+	NoSupport bool    // leave the defender's nearby companies out
+	Others    []*Unit // further companies ordered onto the same target
 }
 
 // Orders lists the planned orders in the order they were given.
@@ -90,9 +92,15 @@ func (s *State) CommitTurn() iter.Seq[*Fight] {
 		if len(s.moves) > 0 {
 			yield(nil)
 		}
-		// Execute attacks
+		// Execute attacks. Orders onto the same hex are one battle, so the
+		// companies' strengths add up.
+		fought := map[Coord]bool{}
 		for _, o := range orders {
-			if o.Attack && s.CanAttack(o.Unit, o.To) == nil && !s.fight(o.Unit, o.To, yield) {
+			if !o.Attack || fought[o.To] || s.CanAttack(o.Unit, o.To) != nil {
+				continue
+			}
+			fought[o.To] = true
+			if !s.fight(o.Unit, o.To, s.fellowAttackers(o, orders), yield) {
 				return
 			}
 		}
@@ -120,15 +128,31 @@ func (s *State) carryOut(o *Order) {
 	}
 }
 
+// fellowAttackers lists the other companies whose order points at the same
+// hex. They join the battle instead of starting one of their own.
+func (s *State) fellowAttackers(order *Order, orders []*Order) []*Unit {
+	var out []*Unit
+	for _, o := range orders {
+		if o == order || !o.Attack || o.To != order.To || o.Unit.Faction != order.Unit.Faction {
+			continue
+		}
+		if s.CanAttack(o.Unit, o.To) != nil {
+			continue
+		}
+		out = append(out, o.Unit)
+	}
+	return out
+}
+
 // fight offers an attack to whoever steps through the turn, then resolves it
 // unless they did. It reports false when the turn is abandoned.
-func (s *State) fight(u *Unit, target Coord, yield func(*Fight) bool) bool {
-	f := &Fight{Unit: u, Target: target}
+func (s *State) fight(u *Unit, target Coord, others []*Unit, yield func(*Fight) bool) bool {
+	f := &Fight{Unit: u, Target: target, Others: others}
 	if !yield(f) {
 		return false
 	}
 	if !f.Resolved {
-		s.Attack(u, target)
+		s.AttackFight(f)
 	}
 	return true
 }

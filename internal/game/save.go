@@ -8,7 +8,7 @@ import (
 
 // snapshotVersion is the layout of Snapshot. It changes when the fields do, so
 // an old save is rejected instead of being read into a wrong match.
-const snapshotVersion = 2
+const snapshotVersion = 3
 
 // Snapshot is a match in a form that can be written to disk. Units, elements,
 // orders and routs refer to each other by their index in the lists, because the
@@ -52,10 +52,11 @@ type UnitSnapshot struct {
 	Short string `json:"short"`
 	Flag  string `json:"flag,omitempty"`
 
-	Used    int  `json:"used"`
-	Spent   bool `json:"spent,omitempty"`
-	Beaten  bool `json:"beaten,omitempty"`
-	Resting bool `json:"resting,omitempty"`
+	Used     int  `json:"used"`
+	Spent    bool `json:"spent,omitempty"`
+	Beaten   bool `json:"beaten,omitempty"`
+	Resting  bool `json:"resting,omitempty"`
+	Withdrew bool `json:"withdrew,omitempty"`
 }
 
 // ElementSnapshot is one node of the order of battle. Parent and Token are
@@ -177,18 +178,19 @@ func (s *State) Snapshot() (Snapshot, error) {
 			continue
 		}
 		snap.Units = append(snap.Units, UnitSnapshot{
-			ID:      u.ID,
-			Faction: u.Faction,
-			Kind:    u.Kind,
-			Pos:     u.Pos,
-			Element: index[u.Element],
-			Name:    u.Name,
-			Short:   u.Short,
-			Flag:    u.Flag,
-			Used:    u.Used,
-			Spent:   u.Spent,
-			Beaten:  u.Beaten,
-			Resting: u.Resting,
+			ID:       u.ID,
+			Faction:  u.Faction,
+			Kind:     u.Kind,
+			Pos:      u.Pos,
+			Element:  index[u.Element],
+			Name:     u.Name,
+			Short:    u.Short,
+			Flag:     u.Flag,
+			Used:     u.Used,
+			Spent:    u.Spent,
+			Beaten:   u.Beaten,
+			Resting:  u.Resting,
+			Withdrew: u.Withdrew,
 		})
 	}
 
@@ -304,18 +306,19 @@ func Restore(snap Snapshot) (*State, error) {
 			return nil, fmt.Errorf("unit %d has element %d", i, us.Element)
 		}
 		s.Units[i] = &Unit{
-			ID:      us.ID,
-			Faction: us.Faction,
-			Kind:    us.Kind,
-			Pos:     us.Pos,
-			Element: s.elements[us.Element],
-			Name:    us.Name,
-			Short:   us.Short,
-			Flag:    us.Flag,
-			Used:    us.Used,
-			Spent:   us.Spent,
-			Beaten:  us.Beaten,
-			Resting: us.Resting,
+			ID:       us.ID,
+			Faction:  us.Faction,
+			Kind:     us.Kind,
+			Pos:      us.Pos,
+			Element:  s.elements[us.Element],
+			Name:     us.Name,
+			Short:    us.Short,
+			Flag:     us.Flag,
+			Used:     us.Used,
+			Spent:    us.Spent,
+			Beaten:   us.Beaten,
+			Resting:  us.Resting,
+			Withdrew: us.Withdrew,
 		}
 	}
 	for i, es := range snap.Elements {

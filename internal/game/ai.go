@@ -203,13 +203,26 @@ func sortedCoords(m map[Coord]int) []Coord {
 	return out
 }
 
-// bestAttackTarget returns the weakest enemy in reach worth attacking.
+// bestAttackTarget returns the weakest enemy in reach whose whole engagement
+// the AI can win. Nearby support on both sides counts, so the AI never attacks
+// into a battle it would lose.
 func (s *State) bestAttackTarget(u *Unit) *Unit {
 	var best *Unit
 	targets := s.AttackTargets(u)
 	for _, c := range sortedCoords(attackCoords(targets)) {
 		e := s.UnitAt(c)
-		if u.Strength()*10 < e.Strength()*attackRatioTenths {
+		if e == nil {
+			continue
+		}
+		attackers, defenders := s.engagement(u, c, nil, true)
+		if len(defenders) == 0 {
+			continue
+		}
+		attackerStrength, defenderStrength := totalStrength(attackers), totalStrength(defenders)
+		if o := s.ObjectAt(c); o != nil && o.Kind.IsCity() {
+			defenderStrength = defenderStrength * cityDefenseBonusPercent / 100
+		}
+		if attackerStrength*10 < defenderStrength*attackRatioTenths {
 			continue
 		}
 		if best == nil || e.Strength() < best.Strength() {
@@ -248,7 +261,7 @@ func (s *State) aiAttack(yield func(*Fight) bool) bool {
 		if u.Faction != s.Active || u.Strength() <= 0 {
 			continue
 		}
-		if t := s.bestAttackTarget(u); t != nil && !s.fight(u, t.Pos, yield) {
+		if t := s.bestAttackTarget(u); t != nil && !s.fight(u, t.Pos, nil, yield) {
 			return false
 		}
 	}

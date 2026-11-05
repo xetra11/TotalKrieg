@@ -144,7 +144,6 @@ type Battle struct {
 	Enemy        []*game.Element // the AI's companies
 	PlayerStaffs []*game.Element // battalion staffs in command of them
 	EnemyStaffs  []*game.Element
-	Fortified    bool // the defender holds a city
 	Defending    bool // the AI attacks
 }
 
@@ -152,8 +151,19 @@ type Battle struct {
 // they stand within command range of a company in the fight.
 func NewBattle(s *game.State, u *game.Unit, target game.Coord) Battle {
 	attackers, defenders := s.Engagement(u, target)
-	o := s.ObjectAt(target)
-	b := Battle{Round: s.Round, Hex: target, Faction: s.First, Fortified: o != nil && o.Kind.IsCity()}
+	return newBattle(s, u, target, attackers, defenders)
+}
+
+// NewBattleForFight collects the exact forces of a planned fight. It keeps
+// companies that were ordered onto the same hex and honours the defender's
+// choice about nearby support.
+func NewBattleForFight(s *game.State, f *game.Fight) Battle {
+	attackers, defenders := s.FightForces(f)
+	return newBattle(s, f.Unit, f.Target, attackers, defenders)
+}
+
+func newBattle(s *game.State, u *game.Unit, target game.Coord, attackers, defenders []*game.Unit) Battle {
+	b := Battle{Round: s.Round, Hex: target, Faction: s.First}
 	if u.Faction != s.First {
 		b.Defending = true
 		attackers, defenders = defenders, attackers
@@ -221,7 +231,7 @@ func (s *Scenario) setAttack(b Battle) {
 	s.Description = fmt.Sprintf("%s attacks %s. Take the enemy position.", ownForce, foeForce)
 	s.Points = map[string][2]int{"own_start": base.player, "enemy_pos": base.enemy}
 	s.Sides.Player.Deploy = Deploy{Type: "place", At: "own_start"}
-	s.Sides.Enemy.Deploy = holdingDeploy("enemy_pos", b.Fortified)
+	s.Sides.Enemy.Deploy = holdingDeploy("enemy_pos")
 	setPlan(s.Sides.Enemy.Platoons, "defend")
 	s.Victory = Victory{OwnReaches: "enemy_pos", Radius: 250, Share: 0.5, Balance: 2}
 	s.Texts = map[string]string{
@@ -238,7 +248,7 @@ func (s *Scenario) setDefense(b Battle) {
 	s.Base = base.id
 	s.Description = fmt.Sprintf("%s attacks %s. Hold the position.", foeForce, ownForce)
 	s.Points = map[string][2]int{"own_pos": base.player, "enemy_start": base.enemy}
-	s.Sides.Player.Deploy = holdingDeploy("own_pos", b.Fortified)
+	s.Sides.Player.Deploy = holdingDeploy("own_pos")
 	s.Sides.Enemy.Deploy = Deploy{Type: "place", At: "enemy_start"}
 	s.Sides.Enemy.Orders = []SideOrder{{To: "own_pos", Mode: "attack"}}
 	setPlan(s.Sides.Enemy.Platoons, "attack")
@@ -251,12 +261,9 @@ func (s *Scenario) setDefense(b Battle) {
 	}
 }
 
-// holdingDeploy digs a defender in when it holds a city.
-func holdingDeploy(at string, fortified bool) Deploy {
-	if fortified {
-		return Deploy{Type: "trench", At: at}
-	}
-	return Deploy{Type: "place", At: at, Formation: "line"}
+// holdingDeploy digs a defender in, in one line facing the attacker.
+func holdingDeploy(at string) Deploy {
+	return Deploy{Type: "trench", At: at, Formation: "line"}
 }
 
 func setPlan(platoons []Platoon, plan string) {

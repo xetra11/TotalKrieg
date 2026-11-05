@@ -378,23 +378,30 @@ func (s *State) CanAttack(u *Unit, target Coord) error {
 // automatically. Both sides roll, and each loses the opposing strength times
 // the opposing roll, rounded up. Every attacker is done for this turn.
 func (s *State) Attack(u *Unit, target Coord) (Report, error) {
-	if err := s.CanAttack(u, target); err != nil {
+	return s.AttackFight(&Fight{Unit: u, Target: target})
+}
+
+// AttackFight resolves a planned fight automatically. Every company ordered onto
+// the same hex fights in the same battle, and the defender may leave its nearby
+// companies out.
+func (s *State) AttackFight(f *Fight) (Report, error) {
+	if err := s.CanAttack(f.Unit, f.Target); err != nil {
 		return Report{}, err
 	}
-	attackers, defenders := s.Engagement(u, target)
+	s.stageAttackers(f)
+	attackers, defenders := s.engagement(f.Unit, f.Target, f.Others, !f.NoSupport)
 	if len(defenders) == 0 {
 		return Report{}, errors.New("Nothing to attack.")
 	}
-	u.Pos = s.AttackTargets(u)[target]
 
 	defenderPercent := s.rollPercent()
-	if o := s.ObjectAt(target); o != nil && o.Kind.IsCity() {
+	if o := s.ObjectAt(f.Target); o != nil && o.Kind.IsCity() {
 		defenderPercent = defenderPercent * cityDefenseBonusPercent / 100
 	}
 	attackerLoss := ceilPercent(totalStrength(defenders), defenderPercent)
 	defenderLoss := ceilPercent(totalStrength(attackers), s.rollPercent())
 	o := autoOutcome(attackerLoss, totalStrength(attackers), defenderLoss, totalStrength(defenders))
-	return s.settle(u, attackers, defenders, target, o, attackerLoss, defenderLoss), nil
+	return s.settle(f.Unit, attackers, defenders, f.Target, o, attackerLoss, defenderLoss), nil
 }
 
 // settle books the losses of a fight.

@@ -93,6 +93,23 @@ func TestRestoreUnitsAndElements(t *testing.T) {
 	}
 }
 
+func TestRestoreWithdrawal(t *testing.T) {
+	s := openField()
+	u := s.Place(Wehrmacht, Company, Coord{5, 5})
+	u.Withdrew = true
+	snap, err := s.Snapshot()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Restore(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !r.Units[0].Withdrew {
+		t.Error("withdrawal not restored")
+	}
+}
+
 func TestRestoreOrders(t *testing.T) {
 	s := openField()
 	u := linked(s, Wehrmacht, Coord{5, 5})

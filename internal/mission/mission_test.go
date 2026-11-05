@@ -84,6 +84,30 @@ func TestEngagementDecidesTheForces(t *testing.T) {
 	}
 }
 
+func TestBattleForFightKeepsTheCombinedAttack(t *testing.T) {
+	s := emptyState()
+	target := game.Coord{Col: 12, Row: 8}
+	n := target.Neighbors()
+	own := battalion(s, game.Wehrmacht, game.Coord{Col: 4, Row: 2})
+	foe := battalion(s, game.SovietUnion, game.Coord{Col: 20, Row: 2})
+	own[0].Token.Pos = n[0]
+	own[1].Token.Pos = game.Coord{Col: 2, Row: 4}
+	own[2].Token.Pos = game.Coord{Col: 2, Row: 2}
+	foe[0].Token.Pos = target
+	foe[1].Token.Pos = n[3]
+
+	f := &game.Fight{
+		Unit:      own[0].Token,
+		Target:    target,
+		Others:    []*game.Unit{own[2].Token},
+		NoSupport: true,
+	}
+	b := NewBattleForFight(s, f)
+	if len(b.Player) != 2 || len(b.Enemy) != 1 {
+		t.Fatalf("%d vs %d companies, want 2 vs 1", len(b.Player), len(b.Enemy))
+	}
+}
+
 func TestLinkedStaffJoinsTheMission(t *testing.T) {
 	s := emptyState()
 	staff := s.Place(game.Wehrmacht, game.Battalion, game.Coord{Col: 5, Row: 5})
@@ -161,6 +185,23 @@ func TestBaseMatchesPlayerNation(t *testing.T) {
 	}
 }
 
+func TestDefenderStartsDugInLine(t *testing.T) {
+	s := emptyState()
+	g := battalion(s, game.Wehrmacht, game.Coord{Col: 5, Row: 5})[:1]
+	r := battalion(s, game.SovietUnion, game.Coord{Col: 15, Row: 5})[:1]
+	want := Deploy{Type: "trench", Formation: "line"}
+	attack := Build(Battle{Faction: game.Wehrmacht, Player: g, Enemy: r})
+	defense := Build(Battle{Faction: game.Wehrmacht, Player: g, Enemy: r, Defending: true})
+	for name, d := range map[string]Deploy{"enemy": attack.Sides.Enemy.Deploy, "player": defense.Sides.Player.Deploy} {
+		if d.Type != want.Type || d.Formation != want.Formation {
+			t.Errorf("%s defends with %+v", name, d)
+		}
+	}
+	if d := attack.Sides.Player.Deploy; d.Type != "place" {
+		t.Errorf("attacker deploys with %+v", d)
+	}
+}
+
 func TestLimitsHoldAndRatioSurvives(t *testing.T) {
 	s := emptyState()
 	g := battalion(s, game.Wehrmacht, game.Coord{Col: 5, Row: 5})
@@ -221,7 +262,7 @@ func TestGeneratorAcceptsScenarios(t *testing.T) {
 	sizes := [][2]int{{1, 1}, {2, 3}, {3, 2}, {4, 5}, {5, 4}, {6, 6}, {1, 6}, {6, 1}}
 	for _, f := range []game.Faction{game.Wehrmacht, game.SovietUnion} {
 		for _, n := range sizes {
-			b := Battle{Round: 1, Faction: f, Player: g[:n[0]], Enemy: r[:n[1]], PlayerStaffs: staffs(g[0]), EnemyStaffs: staffs(r[0]), Fortified: n[0] > n[1]}
+			b := Battle{Round: 1, Faction: f, Player: g[:n[0]], Enemy: r[:n[1]], PlayerStaffs: staffs(g[0]), EnemyStaffs: staffs(r[0])}
 			if f == game.SovietUnion {
 				b.Player, b.Enemy = r[:n[0]], g[:n[1]]
 			}

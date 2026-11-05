@@ -595,6 +595,9 @@ func factionText(f game.Faction) color.RGBA {
 }
 
 func lossText(r game.Report) string {
+	if r.Withdrew {
+		return "Defender withdrew, no losses."
+	}
 	s := fmt.Sprintf("Losses %d to %d", r.AttackerLoss, r.DefenderLoss)
 	if r.DefenderDestroyed {
 		s += ", defender destroyed"

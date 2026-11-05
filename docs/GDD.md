@@ -140,10 +140,12 @@ A round consists of the player's turn and the AI's turn, without fixed phases. I
 
 Several companies take part in a battle on both sides:
 
-- **Attacker:** The attacking company and all own companies next to the target hex that have not fought this round. All attackers are done for the round afterwards.
-- **Defender:** The unit on the target hex and all its companies next to the target hex.
+- **Attacker:** The attacking company and all own companies next to the target hex that have not fought this round. Companies ordered onto the same target hex join as well, so two attack orders are one battle and their strengths add up. All attackers are done for the round afterwards.
+- **Defender:** The unit on the target hex and, optionally, all its companies next to the target hex. When the player defends, the attack dialog offers to leave the nearby companies out. The AI includes them.
 
-Every battle of the player opens a dialog, on the commit of an own attack or during the AI's turn when it attacks. The dialog asks how the battle is resolved: automatically or as a mission in Mius-Front. Hexfront, MiusPlayer and Combat Mission are listed as tactical layers in the dialog, but are still open. Cancel drops an own attack and the company stays where it is. An AI attack can't be refused, and the AI waits for the result. Without MiusMissionMaker, AI attacks are resolved automatically.
+Every battle of the player opens a dialog, on the commit of an own attack or during the AI's turn when it attacks. The dialog asks how the battle is resolved: automatically or as a mission in Mius-Front. Hexfront, MiusPlayer and Combat Mission are listed as tactical layers in the dialog, but are still open. Cancel drops an own attack and the company stays where it is. An AI attack can't be refused, and the AI waits for the result. Without MiusMissionMaker, AI attacks are resolved automatically unless the defender can still withdraw or choose support.
+
+**Withdraw:** A defending unit may pull back one hex farther from the attacker instead of fighting. The attacker takes the vacated hex without losses. A unit can do this only once in its life; if the enemy attacks it again, it must fight.
 
 The automatic resolution is kept short because tactical games will supplement it later:
 
@@ -179,7 +181,8 @@ The player can fight any battle in Graviteam Tactics: Mius-Front, whether attack
 - **Limit:** MiusMissionMaker allows 15 platoons per formation type. Larger battles are scaled down proportionally on both sides. Combat platoons go before company HQs, staffs drop out first.
 - **Attack map:** When the player attacks, the mission uses a fixed map: `tr06` for the Wehrmacht, `tr02` for the Soviet Union. The player wins by taking the enemy position.
 - **Defense map:** When the AI attacks, the mission uses `tr04` for the Wehrmacht and `sm01` for the Soviet Union. The AI gets the order to attack the player's position. The player wins at twice the enemy's strength and loses when the enemy reaches the position.
-- **Defender:** A defender in a city is dug in, otherwise it stands in the open in line.
+- **Defender:** The defender starts dug in, in one line facing the attacker. The player can still change the set-up in the deployment phase.
+- **Attacker:** The attacker sets up only in a 512 m square in its own start area, away from the defender.
 - **Sequence:** The dialog first shows the battle line-up. Only "Start Mius-Front" builds the mission and opens the game.
 - **Result:** At the end of the battle, Mius-Front writes a result file and the outcome to its log. TotalKrieg checks once per second and shows the outcome and the list of losses as soon as they are there. "Apply result" books the losses.
 - **List of losses:** It shows each company's strength before and after, below it every platoon with its lost squads and the condition of the others. Each side has a total of lost squads. Numbers of men are not in the result file.
@@ -198,7 +201,7 @@ The player can fight any battle in Graviteam Tactics: Mius-Front, whether attack
 The AI plays by the same rules as the player, but sees the whole map, because the MVP has no fog of war. It works through a fixed list of priorities each round:
 
 1. **Defend:** If an enemy stands up to 2 hexes from an own city, the nearest unit moves there.
-2. **Attack:** It attacks if its strength is at least 1.2 times that of the target.
+2. **Attack:** It attacks only if the whole engagement, including nearby companies on both sides, has at least 1.2 times the defender's strength. It never starts a battle it would lose.
 3. **Capture:** Remaining companies move to the next object, weighted by capital, city, factory, village.
 4. **Lead:** Staffs move to the center of their companies.
 5. **Raise:** If a city is threatened, it raises companies at once. Otherwise it saves for a battalion.
@@ -213,6 +216,7 @@ The prototype takes the layout and style of the concept art, but replaces the fr
 
 ![Concept art: operational map with battle popup](../concept/operational-map-battle-popup.png)
 
+- **Attack dialog:** Line-up with the combined strength, the choice of resolver, a toggle for nearby support and the one-time withdrawal when the player defends.
 - **Top bar:** Round, manpower, resources, commit orders.
 - **Map:** Hex grid, objects, units with symbol and number, planned orders as arrows, beaten units in orange.
 - **Unit panel:** Name, strength, movement or order, staff link, historical establishment strength.

@@ -471,6 +471,25 @@ func TestAIRespectsAttackRatio(t *testing.T) {
 	}
 }
 
+func TestAIAvoidsACollectiveDefense(t *testing.T) {
+	s := openField()
+	target := Coord{10, 8}
+	d := s.Place(SovietUnion, Company, target)
+	n := target.Neighbors()
+	support := s.Place(SovietUnion, Company, n[3])
+	u := s.Place(Wehrmacht, Company, n[0])
+	setStrength(u, 11)
+	setStrength(d, 9)
+	setStrength(support, 9)
+	if s.bestAttackTarget(u) != nil {
+		t.Error("attacks 11 into 9 plus 9 nearby")
+	}
+	support.Pos = Coord{20, 2}
+	if s.bestAttackTarget(u) == nil {
+		t.Error("skips the attack without the nearby support")
+	}
+}
+
 // TestFullMatches lets the AI play both sides. It checks that matches end and
 // that no rule is broken along the way.
 func TestFullMatches(t *testing.T) {

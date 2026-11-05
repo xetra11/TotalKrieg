@@ -63,6 +63,7 @@ During your turn you act in any order. Income comes at the start of a turn, capt
 - **Attack:** Click one of your companies, then an enemy outlined in red. That plans an attack.
 - **Commit:** **End turn** carries out all orders. Each attack opens a dialog that asks how to resolve the battle. AI attacks open the same dialog.
 - **Flee:** When your unit is beaten, click one of the marked hexes for it to flee to.
+- **Withdraw:** When the AI attacks, the dialog offers a one-time withdrawal. The defender pulls back one hex, the attacker takes the vacated hex, and the next attack must be fought.
 - **Beaten units:** All units of the beaten side sit out their next turn. An orange frame marks them. They can still be attacked.
 - **Order of battle:** Click a unit, then **G** or the button on the right. The window shows the battalion with callsigns, company leaders, positions and the counterpart in Mius-Front.
 - **Staffs:** Companies move 3 hexes only within reach of their staff, otherwise 1 hex. A red dot marks a missing link. Staffs don't attack or capture.

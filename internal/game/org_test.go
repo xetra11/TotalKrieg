@@ -139,6 +139,67 @@ func TestEngagementBringsNeighbors(t *testing.T) {
 	}
 }
 
+func TestDefenderSupportIsOptional(t *testing.T) {
+	s := openField()
+	target := Coord{10, 8}
+	d := s.Place(SovietUnion, Company, target)
+	n := target.Neighbors()
+	support := s.Place(SovietUnion, Company, n[3])
+	u := s.Place(Wehrmacht, Company, n[0])
+
+	with := &Fight{Unit: u, Target: target}
+	if _, defenders := s.FightForces(with); len(defenders) != 2 {
+		t.Errorf("%d defenders with support, want 2", len(defenders))
+	}
+	without := &Fight{Unit: u, Target: target, NoSupport: true}
+	if _, defenders := s.FightForces(without); len(defenders) != 1 || defenders[0] != d {
+		t.Errorf("defenders without support %v", defenders)
+	}
+	if _, err := s.ResolveFight(without, AttackerWins); err != nil {
+		t.Fatal(err)
+	}
+	if !d.OutOfAction() || support.OutOfAction() {
+		t.Errorf("defender beaten %v, support beaten %v", d.OutOfAction(), support.OutOfAction())
+	}
+}
+
+func TestWithdrawFromAnAttackOnlyOnce(t *testing.T) {
+	s := openField()
+	s.Active = SovietUnion
+	target := Coord{10, 8}
+	d := s.Place(Wehrmacht, Company, target)
+	u := s.Place(SovietUnion, Company, Coord{9, 8})
+	f := &Fight{Unit: u, Target: target}
+	if err := s.CanWithdraw(f); err != nil {
+		t.Fatal(err)
+	}
+	r, err := s.WithdrawFight(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !r.Withdrew || !d.Withdrew {
+		t.Errorf("report %+v, withdrawn %v", r, d.Withdrew)
+	}
+	if d.Pos == target || Distance(d.Pos, target) != 1 {
+		t.Errorf("defender at %v", d.Pos)
+	}
+	if s.UnitAt(target) != u {
+		t.Errorf("attacker did not take the vacated hex")
+	}
+
+	// The next attack must be fought, even when a withdrawal would be possible.
+	u.Spent, u.Used = false, 0
+	next := &Fight{Unit: u, Target: d.Pos}
+	d.Withdrew = false
+	if err := s.CanWithdraw(next); err != nil {
+		t.Fatalf("no withdrawal possible even without the flag: %v", err)
+	}
+	d.Withdrew = true
+	if err := s.CanWithdraw(next); err == nil {
+		t.Error("withdrew a second time")
+	}
+}
+
 func TestAllAttackersAreSpent(t *testing.T) {
 	s := openField()
 	target := Coord{10, 8}

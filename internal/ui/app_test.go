@@ -482,6 +482,9 @@ func TestPlayerPicksTheHexDuringTheAITurn(t *testing.T) {
 		a, own, foe := aiFight(t, seed)
 		hex, enemyHex := own.Pos, foe.Pos
 		aiFrames(a)
+		if a.attack != nil {
+			clickRect(a, autoResolveButton())
+		}
 		st := a.st
 		if st.NextRout() == nil {
 			continue
@@ -548,11 +551,39 @@ func TestAIAttackGoesToThePlayer(t *testing.T) {
 	}
 }
 
-func TestAIAttackIsAutomaticWithoutTheTools(t *testing.T) {
+func TestAIAttackAsksBeforeItResolvesWithoutTheTools(t *testing.T) {
 	a, _, _ := aiFight(t, 7)
 	aiFrames(a)
+	if a.attack == nil || !a.canWithdraw() {
+		t.Fatalf("no prompt to withdraw: attack %v", a.attack)
+	}
+	clickRect(a, autoResolveButton())
 	if a.attack != nil || len(a.st.Reports) != 1 {
 		t.Fatalf("attack %v, reports %d", a.attack, len(a.st.Reports))
+	}
+}
+
+func TestPlayerWithdrawsFromAnAIAttack(t *testing.T) {
+	a, own, foe := aiFight(t, 7)
+	aiFrames(a)
+	if a.attack == nil || !a.canWithdraw() {
+		t.Fatalf("no withdrawal offered: attack %v", a.attack)
+	}
+	vacated := own.Pos
+	clickRect(a, withdrawButton())
+	if a.attack != nil || !own.Withdrew || own.Pos == vacated {
+		t.Fatalf("attack %v, withdrawn %v, own at %v", a.attack, own.Withdrew, own.Pos)
+	}
+	if foe.Pos != vacated {
+		t.Errorf("attacker at %v, want the vacated hex %v", foe.Pos, vacated)
+	}
+	if len(a.st.Reports) != 1 || !a.st.Reports[0].Withdrew {
+		t.Errorf("reports %+v", a.st.Reports)
+	}
+
+	aiFrames(a)
+	if a.st.Active != game.Wehrmacht {
+		t.Fatalf("active %v", a.st.Active)
 	}
 }
 

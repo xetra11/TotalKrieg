@@ -73,6 +73,40 @@ func TestCommitCarriesOutOrdersAndEndsTheTurn(t *testing.T) {
 	}
 }
 
+func TestAttackOrdersOnOneHexAreOneBattle(t *testing.T) {
+	s := openField()
+	target := Coord{10, 8}
+	s.Place(SovietUnion, Company, target)
+	a := linked(s, Wehrmacht, Coord{12, 8})
+	b := linked(s, Wehrmacht, Coord{8, 8})
+	if err := s.Plan(a, target); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Plan(b, target); err != nil {
+		t.Fatal(err)
+	}
+	fights := 0
+	for f := range s.CommitTurn() {
+		if f == nil {
+			continue // skip animation yields
+		}
+		fights++
+		if len(f.Others) != 1 {
+			t.Errorf("%d further attackers, want 1", len(f.Others))
+		}
+		attackers, _ := s.FightForces(f)
+		if len(attackers) != 2 {
+			t.Errorf("%d attackers, want 2", len(attackers))
+		}
+	}
+	if fights != 1 || len(s.Reports) != 1 {
+		t.Errorf("%d fights, %d reports", fights, len(s.Reports))
+	}
+	if a.MovesLeft() != 0 || b.MovesLeft() != 0 {
+		t.Errorf("moves left %d and %d", a.MovesLeft(), b.MovesLeft())
+	}
+}
+
 func TestMovedCompanySupportsTheAttack(t *testing.T) {
 	s := openField()
 	target := Coord{10, 8}

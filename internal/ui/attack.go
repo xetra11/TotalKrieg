@@ -43,6 +43,18 @@ func cancelAttackButton() rect {
 	return rect{attackPrompt.x + attackPrompt.w - 144, attackPrompt.y + attackPrompt.h - 54, 120, 38}
 }
 
+// supportButton toggles whether the defender's nearby companies join the
+// battle. It only appears when the player defends and support is available.
+func supportButton() rect {
+	return rect{attackPrompt.x + 24, attackPrompt.y + 432, attackPrompt.w - 48, 34}
+}
+
+// withdrawButton pulls the defending unit back instead of fighting. It appears
+// while the player still has its one withdrawal.
+func withdrawButton() rect {
+	return rect{attackPrompt.x + 24, attackPrompt.y + 470, attackPrompt.w - 48, 34}
+}
+
 func outcomeButton(i int) rect {
 	w := (attackPrompt.w - 64) / 3
 	return rect{attackPrompt.x + 24 + float64(i)*(w+8), attackPrompt.y + 480, w, 52}
@@ -87,14 +99,53 @@ func (a *App) clickAttackPrompt(x, y float64) {
 		a.resolveAuto()
 	case missionButton().contains(x, y) && a.runMission != nil:
 		a.previewMission()
+	case a.incoming() && len(a.supportCandidates()) > 0 && supportButton().contains(x, y):
+		a.attack.NoSupport = !a.attack.NoSupport
+	case a.canWithdraw() && withdrawButton().contains(x, y):
+		a.withdraw()
 	case cancelAttackButton().contains(x, y):
 		a.cancelAttack()
 	}
 }
 
+// canWithdraw reports whether the defending unit may pull back from the
+// pending attack. Each unit has one withdrawal.
+func (a *App) canWithdraw() bool {
+	return a.incoming() && a.st.CanWithdraw(a.attack) == nil
+}
+
+// withdraw pulls the defending unit back instead of fighting. The attacker
+// takes the vacated hex, and the unit must fight the next attack.
+func (a *App) withdraw() {
+	if err := a.st.CanWithdraw(a.attack); err != nil {
+		a.message = err.Error()
+		return
+	}
+	f := a.takeFight()
+	r, err := a.st.WithdrawFight(f)
+	if err != nil {
+		a.message = err.Error()
+		return
+	}
+	a.message = fmt.Sprintf("%s withdrew from the attack. %s takes the hex.", r.Defender, r.Attacker)
+	a.mapDirty = true
+	a.clearSelection()
+	a.showRout()
+	a.autosave()
+}
+
 // incoming reports whether the pending fight is an AI attack.
 func (a *App) incoming() bool {
 	return a.attack != nil && a.attack.Unit.Faction != a.st.First
+}
+
+// supportCandidates lists the defender's nearby companies that may join an
+// incoming attack.
+func (a *App) supportCandidates() []*game.Unit {
+	if a.attack == nil {
+		return nil
+	}
+	return a.st.SupportCandidates(a.attack.Unit, a.attack.Target)
 }
 
 // cancelAttack drops the player's own attack. The AI's attacks can't be refused.
@@ -117,7 +168,7 @@ func (a *App) takeFight() *game.Fight {
 // resolveAuto lets the rules decide the pending fight.
 func (a *App) resolveAuto() {
 	f := a.takeFight()
-	r, err := a.st.Attack(f.Unit, f.Target)
+	r, err := a.st.AttackFight(f)
 	a.finishFight(f.Unit, r, err)
 }
 
@@ -175,7 +226,7 @@ func (a *App) clickRout(x, y float64) {
 
 // previewMission shows the line-up of the fight. Nothing starts yet.
 func (a *App) previewMission() {
-	b := mission.NewBattle(a.st, a.attack.Unit, a.attack.Target)
+	b := mission.NewBattleForFight(a.st, a.attack)
 	a.battle = &externalBattle{
 		scenario: mission.Build(b),
 		own:      mappingRows(b.Player, len(b.PlayerStaffs)),
@@ -314,7 +365,7 @@ func (a *App) pollResult() {
 func (a *App) applyResult() {
 	res := a.battle.result
 	f := a.takeFight()
-	r, err := a.st.ApplyFieldResult(f.Unit, f.Target, res)
+	r, err := a.st.ApplyFightResult(f, res)
 	a.finishFight(f.Unit, r, err)
 }
 
@@ -342,7 +393,7 @@ func (a *App) clickOutcome(x, y float64) {
 				o = outcomes[len(outcomes)-1-i]
 			}
 			f := a.takeFight()
-			r, err := a.st.ResolveBattle(f.Unit, f.Target, o)
+			r, err := a.st.ResolveFight(f, o)
 			a.finishFight(f.Unit, r, err)
 			return
 		}
@@ -383,7 +434,7 @@ func (a *App) drawAttackPrompt(dst *ebiten.Image) {
 		return
 	}
 	r := attackPrompt
-	attackers, defenders := a.st.Engagement(a.attack.Unit, a.attack.Target)
+	attackers, defenders := a.st.FightForces(a.attack)
 	fillRect(dst, r, colChrome)
 	strokeRect(dst, r, 2, colAmber)
 	a.label(dst, "Battle at "+hexName(a.attack.Target), r.x+24, r.y+16, 16, colAmber, true, text.AlignStart)
@@ -433,6 +484,23 @@ func (a *App) drawResolveOptions(dst *ebiten.Image) {
 		fillRect(dst, row, colPanel)
 		strokeRect(dst, row, 1, colLine)
 		a.label(dst, name, row.x+12, row.y+9, 14, colDisabled, false, text.AlignStart)
+	}
+
+	if a.incoming() {
+		if n := len(a.supportCandidates()); n > 0 {
+			b := supportButton()
+			fillRect(dst, b, colPanel)
+			strokeRect(dst, b, 2, colAmber)
+			state := "included"
+			if a.attack.NoSupport {
+				state = "left out"
+			}
+			label := fmt.Sprintf("Nearby support: %s (%d coy.)", state, n)
+			a.label(dst, label, b.x+b.w/2, b.y+8, 15, colText, true, text.AlignCenter)
+		}
+		if a.canWithdraw() {
+			a.drawButton(dst, withdrawButton(), "Withdraw from the attack", true)
+		}
 	}
 
 	if !a.incoming() {

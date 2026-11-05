@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Combined attacks** - Several attack orders on the same hex fight as one battle, with the attackers' strengths added together
+- **Optional defender support** - When the player defends, the attack dialog lets them include or leave out nearby companies
+- **One-time withdrawal** - A defending unit can pull back from an attack instead of fighting. The attacker takes the vacated hex, and the unit must fight the next attack
+
+### Changed
+- The AI now counts nearby companies on both sides before attacking and never starts a battle it would lose
+- Save format bumped to version 3 to store whether a unit has already withdrawn
+- Mius-Front defenders now always start dug in, in one line facing the attacker, not only in cities
+
 ## [0.3.0] - 2026-11-04
 
 ### Added
