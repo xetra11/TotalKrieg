@@ -28,6 +28,7 @@ type Scenario struct {
 	Description string            `json:"description"`
 	Base        string            `json:"base"`
 	MaxMinutes  int               `json:"max_minutes"`
+	DeployPhase bool              `json:"deploy_phase"`
 	Points      map[string][2]int `json:"points"`
 	Sides       Sides             `json:"sides"`
 	Victory     Victory           `json:"victory"`
@@ -223,7 +224,9 @@ func Build(b Battle) Scenario {
 	return s
 }
 
-// setAttack lets the player take a position the enemy holds.
+// setAttack lets the player take a position the enemy holds. Mius-Front lets
+// the player set up anywhere on the map, up to the enemy's trenches, so the
+// attack starts without a deployment phase.
 func (s *Scenario) setAttack(b Battle) {
 	base := basePlans[b.Faction]
 	ownForce, foeForce := force(b.Faction, len(b.Player)), force(b.Faction.Other(), len(b.Enemy))
@@ -246,6 +249,7 @@ func (s *Scenario) setDefense(b Battle) {
 	base := defensePlans[b.Faction]
 	ownForce, foeForce := force(b.Faction, len(b.Player)), force(b.Faction.Other(), len(b.Enemy))
 	s.Base = base.id
+	s.DeployPhase = true
 	s.Description = fmt.Sprintf("%s attacks %s. Hold the position.", foeForce, ownForce)
 	s.Points = map[string][2]int{"own_pos": base.player, "enemy_start": base.enemy}
 	s.Sides.Player.Deploy = holdingDeploy("own_pos")

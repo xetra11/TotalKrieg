@@ -200,6 +200,9 @@ func TestDefenderStartsDugInLine(t *testing.T) {
 	if d := attack.Sides.Player.Deploy; d.Type != "place" {
 		t.Errorf("attacker deploys with %+v", d)
 	}
+	if attack.DeployPhase || !defense.DeployPhase {
+		t.Errorf("deployment phase: attack %v, defense %v", attack.DeployPhase, defense.DeployPhase)
+	}
 }
 
 func TestLimitsHoldAndRatioSurvives(t *testing.T) {

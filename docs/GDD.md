@@ -181,8 +181,8 @@ The player can fight any battle in Graviteam Tactics: Mius-Front, whether attack
 - **Limit:** MiusMissionMaker allows 15 platoons per formation type. Larger battles are scaled down proportionally on both sides. Combat platoons go before company HQs, staffs drop out first.
 - **Attack map:** When the player attacks, the mission uses a fixed map: `tr06` for the Wehrmacht, `tr02` for the Soviet Union. The player wins by taking the enemy position.
 - **Defense map:** When the AI attacks, the mission uses `tr04` for the Wehrmacht and `sm01` for the Soviet Union. The AI gets the order to attack the player's position. The player wins at twice the enemy's strength and loses when the enemy reaches the position.
-- **Defender:** The defender starts dug in, in one line facing the attacker. The player can still change the set-up in the deployment phase.
-- **Attacker:** The attacker sets up only in a 512 m square in its own start area, away from the defender.
+- **Defender:** The defender starts dug in, in one line facing the attacker. A defending player can still change the set-up in the deployment phase.
+- **Attacker:** The attacker starts in its own start area, away from the defender. Mius-Front would let it set up anywhere, up to the enemy's trenches, so an attack has no deployment phase. The player moves the attackers only by orders.
 - **Sequence:** The dialog first shows the battle line-up. Only "Start Mius-Front" builds the mission and opens the game.
 - **Result:** At the end of the battle, Mius-Front writes a result file and the outcome to its log. TotalKrieg checks once per second and shows the outcome and the list of losses as soon as they are there. "Apply result" books the losses.
 - **List of losses:** It shows each company's strength before and after, below it every platoon with its lost squads and the condition of the others. Each side has a total of lost squads. Numbers of men are not in the result file.
