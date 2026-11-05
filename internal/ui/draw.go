@@ -156,7 +156,10 @@ func (a *App) drawTopBar(dst *ebiten.Image) {
 	cities, objects := st.Holdings(st.First)
 	a.label(dst, "Holdings", 1130, 10, 14, colMuted, false, text.AlignStart)
 	a.label(dst, fmt.Sprintf("%d cities, %d objects", cities, objects), 1130, 30, 15, colText, true, text.AlignStart)
+}
 
+func (a *App) drawNextButton(dst *ebiten.Image) {
+	st := a.st
 	b := nextButton()
 	if a.humanTurn() && a.script == nil {
 		name := "End turn"
@@ -164,10 +167,10 @@ func (a *App) drawTopBar(dst *ebiten.Image) {
 			name = fmt.Sprintf("Commit %d orders", n)
 		}
 		fillRect(dst, b, colAmber)
-		a.label(dst, name, b.x+b.w/2, b.y+11, 15, colDeep, true, text.AlignCenter)
+		a.label(dst, name, b.x+b.w/2, b.y+15, 17, colDeep, true, text.AlignCenter)
 	} else {
 		fillRect(dst, b, colLine)
-		a.label(dst, "Please wait", b.x+b.w/2, b.y+11, 15, colMuted, true, text.AlignCenter)
+		a.label(dst, "Please wait", b.x+b.w/2, b.y+15, 17, colMuted, true, text.AlignCenter)
 	}
 }
 
@@ -444,6 +447,7 @@ func (a *App) drawSidebar(dst *ebiten.Image) {
 	a.drawUnitPanel(dst)
 	a.drawCityPanel(dst)
 	a.drawLog(dst)
+	a.drawNextButton(dst)
 }
 
 func (a *App) panelTitle(dst *ebiten.Image, s string, y float64) {
@@ -569,7 +573,7 @@ func (a *App) drawLog(dst *ebiten.Image) {
 		a.label(dst, "No battles yet.", x, y, 15, colMuted, false, text.AlignStart)
 		return
 	}
-	for i := len(reports) - 1; i >= 0 && y < screenH-44; i-- {
+	for i := len(reports) - 1; i >= 0 && y < screenH-100; i-- {
 		r := reports[i]
 		a.label(dst, fmt.Sprintf("Round %d: %s vs. %s", r.Round, r.Attacker, r.Defender), x, y, 14, factionText(r.AttackerFaction), true, text.AlignStart)
 		a.label(dst, lossText(r), x, y+18, 13, colMuted, false, text.AlignStart)

@@ -70,7 +70,7 @@ func hexCorners(cx, cy, size float64) [][2]float32 {
 }
 
 func nextButton() rect {
-	return rect{1396, 10, 188, 40}
+	return rect{sideX + 16, screenH - 64, sideW - 32, 48}
 }
 
 func recruitButton(i int) rect {
